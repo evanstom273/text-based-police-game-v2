@@ -6,6 +6,7 @@ import { InboxApp } from '../components/apps/InboxApp';
 import { CrimeAnalyticsApp } from '../components/apps/CrimeAnalyticsApp';
 import { BudgetApp } from '../components/apps/BudgetApp';
 import { CityMapApp } from '../components/apps/CityMapApp';
+import { SettingsApp } from '../components/apps/SettingsApp';
 
 export const APP_REGISTRY: Record<string, AppDefinition> = {
   dispatch: {
@@ -105,6 +106,20 @@ export const APP_REGISTRY: Record<string, AppDefinition> = {
     minSize: { width: 580, height: 420 },
     defaultGridPos: { row: 0, col: 1 },
     component: CityMapApp,
+  },
+  settings: {
+    id: 'settings',
+    name: 'System Settings & AI',
+    shortName: 'Settings',
+    subtitle: 'Ollama REST Bridge & Tailscale Network',
+    description: 'Configure local AI models, remote Tailscale endpoints, and workstation preferences.',
+    category: 'Administration',
+    badgeCode: 'SYS-08',
+    icon: 'cpu',
+    defaultSize: { width: 820, height: 560 },
+    minSize: { width: 560, height: 400 },
+    defaultGridPos: { row: 1, col: 1 },
+    component: SettingsApp,
   },
 };
 

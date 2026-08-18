@@ -12,6 +12,7 @@ import {
   Database,
   Search,
   Settings,
+  Cpu,
 } from 'lucide-react';
 
 interface AppIconRendererProps {
@@ -58,6 +59,10 @@ export const AppIconRenderer: React.FC<AppIconRendererProps> = ({ name, classNam
       return <Shield {...iconProps} />;
     case 'settings':
       return <Settings {...iconProps} />;
+    case 'cpu':
+    case 'ai':
+    case 'ollama':
+      return <Cpu {...iconProps} />;
     case 'alert':
       return <AlertTriangle {...iconProps} />;
     case 'database':

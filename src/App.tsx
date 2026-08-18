@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { WindowManagerProvider, useWindowManager } from './context/WindowManagerContext';
+import { AIProvider } from './context/AIContext';
 import { Desktop } from './components/desktop/Desktop';
 
 const DesktopBootloader: React.FC = () => {
@@ -15,9 +16,11 @@ const DesktopBootloader: React.FC = () => {
 
 export function App() {
   return (
-    <WindowManagerProvider>
-      <DesktopBootloader />
-    </WindowManagerProvider>
+    <AIProvider>
+      <WindowManagerProvider>
+        <DesktopBootloader />
+      </WindowManagerProvider>
+    </AIProvider>
   );
 }
 

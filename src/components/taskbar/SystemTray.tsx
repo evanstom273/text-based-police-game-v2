@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, Volume2, ShieldCheck } from 'lucide-react';
+import { Wifi, Volume2, ShieldCheck, Cpu } from 'lucide-react';
+import { useAI } from '../../context/AIContext';
+import { useWindowManager } from '../../context/WindowManagerContext';
 
 export const SystemTray: React.FC = () => {
   const [timeStr, setTimeStr] = useState<string>('');
   const [dateStr, setDateStr] = useState<string>('');
+  const { status: aiStatus, config: aiConfig, latencyMs } = useAI();
+  const { openWindow } = useWindowManager();
 
   useEffect(() => {
     const updateTime = () => {
@@ -26,8 +30,41 @@ export const SystemTray: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleOpenSettings = () => {
+    openWindow('settings');
+  };
+
   return (
-    <div className="flex items-center gap-2.5 text-slate-300 font-sans text-xs select-none">
+    <div className="flex items-center gap-2 text-slate-300 font-sans text-xs select-none">
+      {/* AI / Ollama Status Badge */}
+      <button
+        onClick={handleOpenSettings}
+        title={`AI Engine: ${aiStatus.toUpperCase()} (${aiConfig.selectedModel}) - Click to configure Ollama & Tailscale`}
+        className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-medium transition cursor-pointer ${
+          aiStatus === 'connected'
+            ? 'bg-slate-900 border-slate-700/80 text-sky-300 hover:border-sky-500'
+            : aiStatus === 'connecting'
+            ? 'bg-slate-900 border-slate-800 text-blue-400'
+            : 'bg-slate-900/60 border-slate-800/80 text-slate-400 hover:text-slate-200'
+        }`}
+      >
+        <span
+          className={`w-1.5 h-1.5 rounded-full ${
+            aiStatus === 'connected'
+              ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]'
+              : aiStatus === 'connecting'
+              ? 'bg-amber-400 animate-pulse'
+              : 'bg-slate-500'
+          }`}
+        ></span>
+        <Cpu className="w-3 h-3 text-sky-400" />
+        <span className="font-mono text-[10px]">
+          {aiStatus === 'connected'
+            ? `${aiConfig.selectedModel}${latencyMs ? ` (${latencyMs}ms)` : ''}`
+            : 'AI: OFFLINE'}
+        </span>
+      </button>
+
       {/* CAD Network Status */}
       <div 
         title="Secure Department CAD Network"
@@ -50,7 +87,7 @@ export const SystemTray: React.FC = () => {
       {/* Shift Indicator */}
       <div 
         title="Station Shift: Shift 2 (Night)"
-        className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-400 font-medium"
+        className="hidden xl:flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-400 font-medium"
       >
         <span>SHIFT 2</span>
       </div>
