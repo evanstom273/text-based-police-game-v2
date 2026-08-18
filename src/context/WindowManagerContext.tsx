@@ -58,6 +58,8 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!appDef) return;
 
     setWindows((prev) => {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
       // Check if this app window already exists
       const existing = prev.find((w) => w.appId === appId);
       if (existing) {
@@ -69,7 +71,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
           if (w.id === existing.id) {
             return {
               ...w,
-              state: w.state === 'minimised' ? 'normal' : w.state,
+              state: isMobile ? 'maximised' : (w.state === 'minimised' ? 'normal' : w.state),
               zIndex: newZ,
               isFocused: true,
             };
@@ -100,7 +102,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         appId: appDef.id,
         title: appDef.name,
         icon: appDef.icon,
-        state: 'normal',
+        state: isMobile ? 'maximised' : 'normal',
         rect: {
           x: initialX,
           y: initialY,
@@ -127,7 +129,6 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       if (remaining.length === 0) {
         setActiveWindowId(null);
       } else {
-        // Focus the highest z-index remaining window
         const sorted = [...remaining].sort((a, b) => b.zIndex - a.zIndex);
         const top = sorted.find((w) => w.state !== 'minimised') || sorted[0];
         if (top) {
@@ -152,7 +153,6 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         return w;
       });
 
-      // Find next highest visible window to focus
       const visible = updated.filter((w) => w.state !== 'minimised').sort((a, b) => b.zIndex - a.zIndex);
       if (visible.length > 0) {
         const top = visible[0];
@@ -208,19 +208,19 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       const win = prev.find((w) => w.id === windowId);
       if (!win) return prev;
 
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
       if (win.state === 'minimised') {
-        // Restore and focus
         zIndexCounter.current += 1;
         const newZ = zIndexCounter.current;
         setActiveWindowId(win.id);
         return prev.map((w) => ({
           ...w,
-          state: w.id === windowId ? 'normal' : w.state,
+          state: (w.id === windowId) ? (isMobile ? 'maximised' : 'normal') : w.state,
           zIndex: w.id === windowId ? newZ : w.zIndex,
           isFocused: w.id === windowId,
         }));
       } else if (win.isFocused) {
-        // If it's already focused, minimize it
         const updated = prev.map((w) => (w.id === windowId ? { ...w, state: 'minimised' as WindowState, isFocused: false } : w));
         const visible = updated.filter((w) => w.state !== 'minimised').sort((a, b) => b.zIndex - a.zIndex);
         if (visible.length > 0) {
@@ -232,12 +232,12 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
         }
         return updated;
       } else {
-        // Bring to front
         zIndexCounter.current += 1;
         const newZ = zIndexCounter.current;
         setActiveWindowId(win.id);
         return prev.map((w) => ({
           ...w,
+          state: (w.id === windowId && isMobile) ? 'maximised' : w.state,
           zIndex: w.id === windowId ? newZ : w.zIndex,
           isFocused: w.id === windowId,
         }));

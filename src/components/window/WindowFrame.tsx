@@ -4,12 +4,14 @@ import { useWindowManager } from '../../context/WindowManagerContext';
 import { AppIconRenderer } from '../common/AppIconRenderer';
 import { Minus, Square, Copy, X } from 'lucide-react';
 import { getAppById } from '../../config/apps.config';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 interface WindowFrameProps {
   window: WindowInstance;
 }
 
 export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
+  const isMobile = useIsMobile(768);
   const {
     focusWindow,
     closeWindow,
@@ -36,26 +38,24 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
     initialRect: { x: number; y: number; width: number; height: number };
   } | null>(null);
 
-  // If minimised, do not render in the viewport
   if (win.state === 'minimised') {
     return null;
   }
 
-  const isMaximized = win.state === 'maximised';
-  const isSnappedLeft = win.state === 'snapped-left';
-  const isSnappedRight = win.state === 'snapped-right';
+  const isMaximized = win.state === 'maximised' || isMobile;
+  const isSnappedLeft = !isMobile && win.state === 'snapped-left';
+  const isSnappedRight = !isMobile && win.state === 'snapped-right';
   const isFixedState = isMaximized || isSnappedLeft || isSnappedRight;
 
-  // Handle Dragging
-  const handleHeaderMouseDown = (e: React.MouseEvent) => {
-    // Only drag on left click and avoid button clicks
+  // Handle Dragging using Pointer Events (touch & mouse)
+  const handleHeaderPointerDown = (e: React.PointerEvent) => {
+    if (isMobile) return;
     if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
 
     focusWindow(win.id);
 
     let startRect = { ...win.rect };
 
-    // If window was maximised or snapped, revert to normal geometry centered under cursor
     if (isFixedState) {
       const normalWidth = win.previousRect?.width || win.minWidth || 800;
       const normalHeight = win.previousRect?.height || win.minHeight || 500;
@@ -82,10 +82,10 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
     setWindowDragging(true, 'none');
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       if (!dragRef.current) return;
 
-      const deltaX = moveEvent.clientX - dragStartPosDelta(moveEvent.clientX);
+      const deltaX = moveEvent.clientX - dragRef.current.startX;
       const deltaY = moveEvent.clientY - dragRef.current.startY;
 
       const newX = dragRef.current.initialRect.x + deltaX;
@@ -93,7 +93,6 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
       updateWindowRect(win.id, { x: newX, y: newY });
 
-      // Edge snapping detection
       let snap: SnapTarget = 'none';
       const snapThreshold = 25;
 
@@ -109,11 +108,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       setWindowDragging(true, snap);
     };
 
-    function dragStartPosDelta(clientX: number) {
-      return dragRef.current ? dragRef.current.startX : clientX;
-    }
-
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       if (dragRef.current) {
         const finalSnap = dragRef.current.currentSnapTarget;
         if (finalSnap !== 'none') {
@@ -122,17 +117,19 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       }
       dragRef.current = null;
       setWindowDragging(false, 'none');
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('pointercancel', handlePointerUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('pointercancel', handlePointerUp);
   };
 
-  // Handle Resizing
-  const handleResizeMouseDown = (direction: string, e: React.MouseEvent) => {
-    if (e.button !== 0 || isFixedState) return;
+  // Handle Resizing using Pointer Events
+  const handleResizePointerDown = (direction: string, e: React.PointerEvent) => {
+    if (e.button !== 0 || isFixedState || isMobile) return;
     e.stopPropagation();
     e.preventDefault();
 
@@ -145,7 +142,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       initialRect: { ...win.rect },
     };
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       if (!resizeRef.current) return;
 
       const deltaX = moveEvent.clientX - resizeRef.current.startX;
@@ -195,26 +192,37 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       });
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       resizeRef.current = null;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('pointercancel', handlePointerUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('pointercancel', handlePointerUp);
   };
 
-  // Compute position styling
   let containerStyle: React.CSSProperties = {};
 
-  if (isMaximized) {
+  if (isMobile) {
+    containerStyle = {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 44,
+      zIndex: win.zIndex,
+      borderRadius: 0,
+    };
+  } else if (isMaximized) {
     containerStyle = {
       position: 'fixed',
       top: 4,
       left: 4,
       right: 4,
-      bottom: 44, // above bottom taskbar
+      bottom: 48,
       zIndex: win.zIndex,
     };
   } else if (isSnappedLeft) {
@@ -223,7 +231,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       top: 4,
       left: 4,
       width: 'calc(50vw - 6px)',
-      bottom: 44,
+      bottom: 48,
       zIndex: win.zIndex,
     };
   } else if (isSnappedRight) {
@@ -232,7 +240,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       top: 4,
       right: 4,
       width: 'calc(50vw - 6px)',
-      bottom: 44,
+      bottom: 48,
       zIndex: win.zIndex,
     };
   } else {
@@ -250,26 +258,34 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
   return (
     <div
       style={containerStyle}
-      onMouseDown={() => focusWindow(win.id)}
-      className={`flex flex-col rounded-md overflow-hidden bg-slate-900 transition-shadow duration-150 ${
-        win.isFocused ? 'window-shadow-focused ring-1 ring-sky-500/60' : 'window-shadow ring-1 ring-slate-800'
+      onPointerDown={() => focusWindow(win.id)}
+      className={`flex flex-col bg-white text-slate-900 transition-shadow duration-150 overflow-hidden ${
+        isMobile
+          ? 'border-b border-slate-300'
+          : `rounded-lg border ${
+              win.isFocused
+                ? 'window-shadow-focused border-blue-500 ring-1 ring-blue-500/40'
+                : 'window-shadow border-slate-700/80'
+            }`
       }`}
     >
-      {/* Window Header Bar */}
+      {/* High-Contrast Distinct Window Header Bar */}
       <div
-        onMouseDown={handleHeaderMouseDown}
-        onDoubleClick={() => (isMaximized ? restoreWindow(win.id) : maximizeWindow(win.id))}
-        className={`flex items-center justify-between px-3 py-1.5 cursor-move select-none border-b transition-colors ${
+        onPointerDown={handleHeaderPointerDown}
+        onDoubleClick={() => !isMobile && (isMaximized ? restoreWindow(win.id) : maximizeWindow(win.id))}
+        className={`flex items-center justify-between px-3.5 py-2 select-none border-b transition-colors ${
+          isMobile ? 'cursor-default' : 'cursor-move'
+        } ${
           win.isFocused
-            ? 'bg-slate-950 text-slate-100 border-sky-900/60'
-            : 'bg-slate-950/80 text-slate-400 border-slate-800'
+            ? 'bg-slate-950 text-white border-slate-800'
+            : 'bg-slate-900 text-slate-300 border-slate-800/90'
         }`}
       >
-        {/* Title Area */}
-        <div className="flex items-center gap-2 overflow-hidden pr-2">
+        {/* Title & App Identity */}
+        <div className="flex items-center gap-2.5 overflow-hidden pr-2">
           <div
             className={`p-1 rounded ${
-              win.isFocused ? 'bg-sky-950 text-sky-400 border border-sky-800/80' : 'bg-slate-900 text-slate-500'
+              win.isFocused ? 'bg-blue-900/70 text-sky-300 border border-blue-600/60' : 'bg-slate-800 text-slate-400'
             }`}
           >
             <AppIconRenderer name={win.icon} className="w-3.5 h-3.5" />
@@ -277,97 +293,91 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
           <div className="flex items-baseline gap-2 truncate">
             {appDef?.badgeCode && (
-              <span className="font-mono text-[10px] font-bold text-sky-400 bg-sky-950/60 border border-sky-900 px-1 py-0.2 rounded">
+              <span className="font-mono text-[10px] font-bold text-sky-400 bg-sky-950/90 border border-sky-800/70 px-1.5 py-0.2 rounded shadow-2xs">
                 [{appDef.badgeCode}]
               </span>
             )}
-            <span className="font-semibold text-xs text-slate-200 truncate">{win.title}</span>
-            {appDef?.subtitle && (
-              <span className="text-[11px] text-slate-500 truncate hidden sm:inline">— {appDef.subtitle}</span>
+            <span className="font-semibold text-xs text-white truncate">{win.title}</span>
+            {appDef?.subtitle && !isMobile && (
+              <span className="text-[11px] text-slate-400 truncate hidden sm:inline">— {appDef.subtitle}</span>
             )}
           </div>
         </div>
 
-        {/* Action Controls (Minimize, Maximize, Close) */}
-        <div className="flex items-center gap-1 shrink-0" onMouseDown={(e) => e.stopPropagation()}>
+        {/* Action Controls */}
+        <div className="flex items-center gap-1 shrink-0" onPointerDown={(e) => e.stopPropagation()}>
           <button
             onClick={() => minimizeWindow(win.id)}
             title="Minimize"
-            className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
+            className="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition"
           >
             <Minus className="w-3.5 h-3.5" />
           </button>
 
-          <button
-            onClick={() => (isFixedState ? restoreWindow(win.id) : maximizeWindow(win.id))}
-            title={isFixedState ? 'Restore' : 'Maximize'}
-            className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
-          >
-            {isFixedState ? <Copy className="w-3 h-3" /> : <Square className="w-3 h-3" />}
-          </button>
+          {!isMobile && (
+            <button
+              onClick={() => (isFixedState ? restoreWindow(win.id) : maximizeWindow(win.id))}
+              title={isFixedState ? 'Restore' : 'Maximize'}
+              className="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            >
+              {isFixedState ? <Copy className="w-3 h-3" /> : <Square className="w-3 h-3" />}
+            </button>
+          )}
 
           <button
             onClick={() => closeWindow(win.id)}
             title="Close"
-            className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-red-300 hover:bg-red-950/80 hover:border hover:border-red-800 transition"
+            className="w-7 h-7 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-red-700 transition"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Application Content Area */}
-      <div className="flex-1 overflow-hidden relative bg-slate-900">
+      {/* Clean, High-Legibility Light Application Content Area */}
+      <div className="flex-1 overflow-hidden relative bg-white text-slate-900">
         {AppComponent ? (
           <AppComponent windowId={win.id} appId={win.appId} />
         ) : (
-          <div className="flex items-center justify-center h-full text-slate-500 font-mono text-xs">
+          <div className="flex items-center justify-center h-full text-slate-400 font-mono text-xs">
             APPLICATION MODULE NOT LOADED
           </div>
         )}
       </div>
 
-      {/* 8-Directional Resize Handles (only active when not maximized or snapped) */}
-      {!isFixedState && (
+      {/* 8-Directional Resize Handles (Desktop Only) */}
+      {!isFixedState && !isMobile && (
         <>
-          {/* North */}
           <div
-            onMouseDown={(e) => handleResizeMouseDown('n', e)}
+            onPointerDown={(e) => handleResizePointerDown('n', e)}
             className="absolute top-0 left-2 right-2 h-1.5 cursor-ns-resize z-20"
           />
-          {/* South */}
           <div
-            onMouseDown={(e) => handleResizeMouseDown('s', e)}
+            onPointerDown={(e) => handleResizePointerDown('s', e)}
             className="absolute bottom-0 left-2 right-2 h-1.5 cursor-ns-resize z-20"
           />
-          {/* East */}
           <div
-            onMouseDown={(e) => handleResizeMouseDown('e', e)}
+            onPointerDown={(e) => handleResizePointerDown('e', e)}
             className="absolute right-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20"
           />
-          {/* West */}
           <div
-            onMouseDown={(e) => handleResizeMouseDown('w', e)}
+            onPointerDown={(e) => handleResizePointerDown('w', e)}
             className="absolute left-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20"
           />
-          {/* North-West */}
           <div
-            onMouseDown={(e) => handleResizeMouseDown('nw', e)}
+            onPointerDown={(e) => handleResizePointerDown('nw', e)}
             className="absolute top-0 left-0 w-2.5 h-2.5 cursor-nwse-resize z-20"
           />
-          {/* North-East */}
           <div
-            onMouseDown={(e) => handleResizeMouseDown('ne', e)}
+            onPointerDown={(e) => handleResizePointerDown('ne', e)}
             className="absolute top-0 right-0 w-2.5 h-2.5 cursor-nesw-resize z-20"
           />
-          {/* South-West */}
           <div
-            onMouseDown={(e) => handleResizeMouseDown('sw', e)}
+            onPointerDown={(e) => handleResizePointerDown('sw', e)}
             className="absolute bottom-0 left-0 w-2.5 h-2.5 cursor-nesw-resize z-20"
           />
-          {/* South-East */}
           <div
-            onMouseDown={(e) => handleResizeMouseDown('se', e)}
+            onPointerDown={(e) => handleResizePointerDown('se', e)}
             className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize z-20"
           />
         </>

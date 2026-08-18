@@ -27,46 +27,46 @@ export const SystemTray: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex items-center gap-3 text-slate-300 font-mono text-[11px] select-none">
+    <div className="flex items-center gap-2.5 text-slate-300 font-sans text-xs select-none">
       {/* CAD Network Status */}
       <div 
-        title="Secure Department Intranet (Encrypted)"
-        className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-800 text-[10px]"
+        title="Secure Department CAD Network"
+        className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px]"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
         <Wifi className="w-3 h-3 text-emerald-400" />
-        <span className="text-slate-300 font-bold">CAD-NET</span>
+        <span className="text-slate-200 font-bold">CAD-NET</span>
       </div>
 
       {/* Threat Level */}
       <div 
         title="Precinct Threat Assessment Level"
-        className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded bg-sky-950/60 border border-sky-800/60 text-[10px]"
+        className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded bg-sky-950/70 border border-sky-800/60 text-[10px]"
       >
         <ShieldCheck className="w-3 h-3 text-sky-400" />
-        <span className="text-sky-300 font-bold">THREAT: NORMAL</span>
+        <span className="text-sky-300 font-semibold">THREAT: NORMAL</span>
       </div>
 
       {/* Shift Indicator */}
       <div 
-        title="Current Station Shift: Shift 2 (Night)"
-        className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-400"
+        title="Station Shift: Shift 2 (Night)"
+        className="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] text-slate-400 font-medium"
       >
         <span>SHIFT 2</span>
       </div>
 
       {/* Audio / Radio Comm Volume */}
       <button 
-        title="TAC Radio Audio Level: 100%"
+        title="Radio Audio Level: 100%"
         className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition"
       >
-        <Volume2 className="w-3.5 h-3.5 text-slate-400" />
+        <Volume2 className="w-3.5 h-3.5" />
       </button>
 
       {/* System Clock & Date */}
-      <div className="flex flex-col items-end px-2 py-0.5 bg-slate-950/80 border border-slate-800 rounded leading-tight">
-        <span className="font-bold text-slate-100 tracking-wide text-xs">{timeStr || '00:00:00'}</span>
-        <span className="text-[9px] text-slate-500 font-medium">{dateStr || '18 AUG 2026'}</span>
+      <div className="flex flex-col items-end px-2 py-0.5 bg-slate-900 border border-slate-800 rounded leading-tight">
+        <span className="font-bold text-slate-100 tracking-tight font-mono text-[11px]">{timeStr || '00:00:00'}</span>
+        <span className="text-[9px] text-slate-400 font-sans font-medium">{dateStr || '18 AUG 2026'}</span>
       </div>
     </div>
   );

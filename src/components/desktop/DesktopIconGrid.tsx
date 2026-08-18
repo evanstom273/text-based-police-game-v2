@@ -3,16 +3,17 @@ import type { DesktopIconItem } from '../../types';
 import { APP_LIST } from '../../config/apps.config';
 import { AppIconRenderer } from '../common/AppIconRenderer';
 import { useWindowManager } from '../../context/WindowManagerContext';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
-const GRID_CELL_WIDTH = 96;
-const GRID_CELL_HEIGHT = 100;
-const PADDING_TOP = 20;
-const PADDING_LEFT = 20;
+const GRID_CELL_WIDTH = 104;
+const GRID_CELL_HEIGHT = 112;
+const PADDING_TOP = 24;
+const PADDING_LEFT = 24;
 
 export const DesktopIconGrid: React.FC = () => {
   const { openWindow } = useWindowManager();
+  const isMobile = useIsMobile(768);
 
-  // Initialize icon positions from app list definitions
   const [icons, setIcons] = useState<DesktopIconItem[]>(() => {
     return APP_LIST.map((app) => ({
       id: `icon-${app.id}`,
@@ -40,9 +41,9 @@ export const DesktopIconGrid: React.FC = () => {
     origCol: number;
     origRow: number;
     hasMoved: boolean;
+    lastTapTime: number;
   } | null>(null);
 
-  // Helper to find nearest available cell if occupied
   const getFreeCell = (targetCol: number, targetRow: number, currentIconId: string, currentIcons: DesktopIconItem[]) => {
     const occupied = new Set(
       currentIcons
@@ -54,7 +55,6 @@ export const DesktopIconGrid: React.FC = () => {
       return { col: targetCol, row: targetRow };
     }
 
-    // Find nearest free cell in adjacent rows/cols
     for (let r = 0; r < 12; r++) {
       for (let c = 0; c < 12; c++) {
         if (!occupied.has(`${c},${r}`)) {
@@ -65,9 +65,18 @@ export const DesktopIconGrid: React.FC = () => {
     return { col: targetCol, row: targetRow };
   };
 
-  const handleIconMouseDown = (e: React.MouseEvent, icon: DesktopIconItem) => {
+  const handleIconPointerDown = (e: React.PointerEvent, icon: DesktopIconItem) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+
+    const now = Date.now();
+    const isDoubleTap = dragStartPos.current && dragStartPos.current.iconId === icon.id && (now - dragStartPos.current.lastTapTime < 350);
+
+    if (isDoubleTap || isMobile) {
+      openWindow(icon.appId);
+      setSelectedIconId(icon.id);
+      return;
+    }
 
     setSelectedIconId(icon.id);
 
@@ -78,19 +87,19 @@ export const DesktopIconGrid: React.FC = () => {
       origCol: icon.gridCol,
       origRow: icon.gridRow,
       hasMoved: false,
+      lastTapTime: now,
     };
 
     const initialX = PADDING_LEFT + icon.gridCol * GRID_CELL_WIDTH;
     const initialY = PADDING_TOP + icon.gridRow * GRID_CELL_HEIGHT;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
+    const handlePointerMove = (moveEvent: PointerEvent) => {
       if (!dragStartPos.current) return;
 
       const deltaX = moveEvent.clientX - dragStartPos.current.startX;
       const deltaY = moveEvent.clientY - dragStartPos.current.startY;
 
-      // Start drag threshold to avoid accidental micro-drags during click
-      if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
+      if (Math.abs(deltaX) > 6 || Math.abs(deltaY) > 6) {
         dragStartPos.current.hasMoved = true;
         setDraggingIcon({
           id: icon.id,
@@ -100,7 +109,7 @@ export const DesktopIconGrid: React.FC = () => {
       }
     };
 
-    const handleMouseUp = (upEvent: MouseEvent) => {
+    const handlePointerUp = (upEvent: PointerEvent) => {
       if (dragStartPos.current && dragStartPos.current.hasMoved) {
         const deltaX = upEvent.clientX - dragStartPos.current.startX;
         const deltaY = upEvent.clientY - dragStartPos.current.startY;
@@ -121,14 +130,15 @@ export const DesktopIconGrid: React.FC = () => {
         });
       }
 
-      dragStartPos.current = null;
       setDraggingIcon(null);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('pointercancel', handlePointerUp);
     };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('pointermove', handlePointerMove);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('pointercancel', handlePointerUp);
   };
 
   const handleDoubleClick = (appId: string) => {
@@ -138,23 +148,26 @@ export const DesktopIconGrid: React.FC = () => {
   return (
     <div
       onClick={() => setSelectedIconId(null)}
-      className="absolute inset-0 bottom-12 overflow-hidden pointer-events-auto"
+      className="absolute inset-0 bottom-14 overflow-hidden pointer-events-auto select-none"
     >
-      {icons.map((icon) => {
+      {icons.map((icon, index) => {
         const isDragging = draggingIcon?.id === icon.id;
         const isSelected = selectedIconId === icon.id;
 
+        const col = isMobile ? index % 3 : icon.gridCol;
+        const row = isMobile ? Math.floor(index / 3) : icon.gridRow;
+
         const posX = isDragging
           ? draggingIcon.currentX
-          : PADDING_LEFT + icon.gridCol * GRID_CELL_WIDTH;
+          : PADDING_LEFT + col * (isMobile ? 104 : GRID_CELL_WIDTH);
         const posY = isDragging
           ? draggingIcon.currentY
-          : PADDING_TOP + icon.gridRow * GRID_CELL_HEIGHT;
+          : PADDING_TOP + row * (isMobile ? 112 : GRID_CELL_HEIGHT);
 
         return (
           <div
             key={icon.id}
-            onMouseDown={(e) => handleIconMouseDown(e, icon)}
+            onPointerDown={(e) => handleIconPointerDown(e, icon)}
             onDoubleClick={(e) => {
               e.stopPropagation();
               handleDoubleClick(icon.appId);
@@ -162,29 +175,30 @@ export const DesktopIconGrid: React.FC = () => {
             style={{
               position: 'absolute',
               transform: `translate3d(${posX}px, ${posY}px, 0)`,
-              width: `${GRID_CELL_WIDTH - 8}px`,
-              height: `${GRID_CELL_HEIGHT - 8}px`,
+              width: `${(isMobile ? 100 : GRID_CELL_WIDTH) - 6}px`,
+              height: `${(isMobile ? 108 : GRID_CELL_HEIGHT) - 6}px`,
               zIndex: isDragging ? 50 : 10,
+              touchAction: 'none',
             }}
-            className={`group flex flex-col items-center justify-center p-2 rounded-md transition-all cursor-pointer select-none ${
-              isDragging ? 'opacity-80 scale-105 shadow-2xl' : ''
+            className={`group flex flex-col items-center justify-center p-2 rounded-lg transition-all cursor-pointer select-none ${
+              isDragging ? 'opacity-75 scale-105 shadow-2xl' : ''
             } ${
               isSelected
-                ? 'bg-sky-500/20 border border-sky-400/60 shadow-lg shadow-sky-500/10'
+                ? 'bg-blue-600/30 border border-sky-400 shadow-lg shadow-sky-500/20'
                 : 'hover:bg-slate-800/40 border border-transparent'
             }`}
           >
-            {/* Badge Code Tag */}
-            <div className="text-[9px] font-mono font-bold text-sky-400/80 bg-slate-950/80 border border-sky-900/50 px-1 py-0.2 rounded mb-1 tracking-tight">
+            {/* Subtle Badge Tag */}
+            <div className="text-[9px] font-mono font-bold text-sky-300/90 bg-slate-900/90 border border-sky-900/60 px-1.5 py-0.2 rounded mb-1 shadow-sm">
               {icon.badgeCode}
             </div>
 
             {/* Icon Box */}
             <div
-              className={`w-10 h-10 rounded flex items-center justify-center transition-all ${
+              className={`w-11 h-11 rounded-lg flex items-center justify-center transition-all ${
                 isSelected
-                  ? 'bg-sky-600/30 text-sky-300 border border-sky-400/80 shadow-md shadow-sky-500/20'
-                  : 'bg-slate-900/90 text-slate-300 border border-slate-700/80 group-hover:border-slate-500 group-hover:text-white'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/30 border border-sky-300'
+                  : 'bg-slate-900/80 text-sky-400 border border-slate-700/80 shadow-md group-hover:border-sky-500/70 group-hover:bg-slate-800 group-hover:text-white'
               }`}
             >
               <AppIconRenderer name={icon.icon} className="w-5 h-5" />
@@ -192,10 +206,10 @@ export const DesktopIconGrid: React.FC = () => {
 
             {/* App Title */}
             <span
-              className={`mt-1.5 text-[11px] font-medium text-center leading-tight tracking-tight px-1 rounded line-clamp-2 ${
+              className={`mt-1.5 text-[11px] font-medium text-center leading-tight tracking-tight px-1 rounded line-clamp-2 icon-text-shadow ${
                 isSelected
-                  ? 'text-sky-200 font-semibold bg-slate-950/90'
-                  : 'text-slate-300 group-hover:text-white'
+                  ? 'text-white font-bold bg-blue-950/80'
+                  : 'text-slate-200 group-hover:text-white font-medium'
               }`}
             >
               {icon.title}

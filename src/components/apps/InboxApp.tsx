@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Inbox, Send, Archive, ShieldAlert } from 'lucide-react';
+import { Inbox, Send, Archive, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 export const InboxApp: React.FC<{ windowId: string; appId: string }> = () => {
+  const isMobile = useIsMobile(768);
   const [selectedMail, setSelectedMail] = useState<string>('m1');
+  const [mobileShowReader, setMobileShowReader] = useState(false);
 
   const emails = [
     {
@@ -49,106 +52,131 @@ export const InboxApp: React.FC<{ windowId: string; appId: string }> = () => {
 
   const current = emails.find(e => e.id === selectedMail) || emails[0];
 
-  return (
-    <div className="flex h-full bg-slate-900 text-slate-200 text-xs select-text">
-      {/* Mail Sidebar Folders */}
-      <div className="w-44 border-r border-slate-800 bg-slate-950/60 p-2 flex flex-col justify-between">
-        <div className="space-y-1">
-          <div className="px-2 py-1 text-[10px] font-mono text-slate-500 uppercase tracking-wider">
-            Folders
-          </div>
-          <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-sky-950/80 text-sky-300 font-semibold border border-sky-800/60">
-            <span className="flex items-center gap-2">
-              <Inbox className="w-3.5 h-3.5 text-sky-400" />
-              Inbox
-            </span>
-            <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.2 rounded font-mono">2</span>
-          </button>
-          <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 transition">
-            <span className="flex items-center gap-2">
-              <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
-              High Priority
-            </span>
-          </button>
-          <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 transition">
-            <span className="flex items-center gap-2">
-              <Send className="w-3.5 h-3.5 text-slate-500" />
-              Sent Items
-            </span>
-          </button>
-          <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded text-slate-400 hover:bg-slate-800/40 hover:text-slate-200 transition">
-            <span className="flex items-center gap-2">
-              <Archive className="w-3.5 h-3.5 text-slate-500" />
-              Archive
-            </span>
-          </button>
-        </div>
+  const handleSelectMail = (id: string) => {
+    setSelectedMail(id);
+    if (isMobile) {
+      setMobileShowReader(true);
+    }
+  };
 
-        <div className="p-2 bg-slate-900 border border-slate-800/80 rounded text-[10px] text-slate-400 font-mono">
-          <div>ENC: AES-256</div>
-          <div className="text-emerald-400">STATUS: SECURE</div>
+  return (
+    <div className="flex h-full bg-white text-slate-900 text-xs font-sans select-text">
+      {/* Mail Sidebar Folders (Hidden on Mobile) */}
+      {!isMobile && (
+        <div className="w-44 border-r border-slate-200 bg-slate-50 p-2.5 flex flex-col justify-between">
+          <div className="space-y-1">
+            <div className="px-2 py-1 text-[10px] font-sans font-semibold text-slate-500 uppercase tracking-wider">
+              Mail Folders
+            </div>
+            <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md bg-blue-50 text-blue-900 font-semibold border border-blue-200">
+              <span className="flex items-center gap-2">
+                <Inbox className="w-3.5 h-3.5 text-blue-700" />
+                Inbox
+              </span>
+              <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.2 rounded font-mono">2</span>
+            </button>
+            <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
+              <span className="flex items-center gap-2">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                Priority
+              </span>
+            </button>
+            <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
+              <span className="flex items-center gap-2">
+                <Send className="w-3.5 h-3.5 text-slate-400" />
+                Sent
+              </span>
+            </button>
+            <button className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition">
+              <span className="flex items-center gap-2">
+                <Archive className="w-3.5 h-3.5 text-slate-400" />
+                Archive
+              </span>
+            </button>
+          </div>
+
+          <div className="p-2.5 bg-white border border-slate-200 rounded text-[11px] text-slate-500">
+            <div className="text-emerald-700 font-medium flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Secure Network
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Mail List */}
-      <div className="w-72 border-r border-slate-800 flex flex-col bg-slate-950/20">
-        <div className="p-2 border-b border-slate-800 bg-slate-950/60 font-mono text-[11px] text-slate-400 flex justify-between">
-          <span>INBOX (4 MESSAGES)</span>
-          <span className="text-sky-400">FILTER</span>
-        </div>
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-800/40">
-          {emails.map((e) => (
-            <div
-              key={e.id}
-              onClick={() => setSelectedMail(e.id)}
-              className={`p-2.5 cursor-pointer transition ${
-                selectedMail === e.id 
-                  ? 'bg-slate-800/80 border-l-2 border-l-sky-400' 
-                  : 'hover:bg-slate-800/40'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className={`font-semibold truncate max-w-[150px] ${e.unread ? 'text-white' : 'text-slate-400'}`}>
-                  {e.from.split('<')[0]}
-                </span>
-                <span className="text-[10px] font-mono text-slate-500">{e.time}</span>
+      {(!isMobile || !mobileShowReader) && (
+        <div className="w-full md:w-72 border-r border-slate-200 flex flex-col bg-slate-50/50">
+          <div className="p-2.5 border-b border-slate-200 bg-white font-sans text-xs font-semibold text-slate-700 flex justify-between">
+            <span>Inbox ({emails.length})</span>
+            <span className="text-blue-700 font-medium cursor-pointer">Filter</span>
+          </div>
+          <div className="flex-1 overflow-y-auto divide-y divide-slate-200">
+            {emails.map((e) => (
+              <div
+                key={e.id}
+                onClick={() => handleSelectMail(e.id)}
+                className={`p-3 cursor-pointer transition ${
+                  selectedMail === e.id 
+                    ? 'bg-blue-50/80 border-l-4 border-l-blue-600' 
+                    : 'bg-white hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`truncate max-w-[160px] ${e.unread ? 'text-slate-950 font-bold' : 'text-slate-600'}`}>
+                    {e.from.split('<')[0]}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">{e.time}</span>
+                </div>
+                <p className={`line-clamp-1 mb-1 ${e.unread ? 'text-blue-900 font-semibold' : 'text-slate-800'}`}>
+                  {e.subject}
+                </p>
+                <p className="line-clamp-1 text-[11px] text-slate-500">
+                  {e.body}
+                </p>
               </div>
-              <p className={`line-clamp-1 mb-1 ${e.unread ? 'text-sky-300 font-medium' : 'text-slate-300'}`}>
-                {e.subject}
-              </p>
-              <p className="line-clamp-1 text-[11px] text-slate-500">
-                {e.body}
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Message Reader View */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
-        <div className="p-3 bg-slate-950/50 border-b border-slate-800">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold text-slate-100">{current.subject}</h3>
-            <div className="flex items-center gap-2">
-              <button className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-200 font-medium text-[11px]">
-                Reply
-              </button>
-              <button className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-200 font-medium text-[11px]">
-                Forward
-              </button>
+      {(!isMobile || mobileShowReader) && (
+        <div className="flex-1 flex flex-col overflow-hidden bg-white">
+          <div className="p-3.5 bg-slate-50 border-b border-slate-200">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                {isMobile && (
+                  <button
+                    onClick={() => setMobileShowReader(false)}
+                    className="p-1 rounded hover:bg-slate-200 text-slate-600 mr-1"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                )}
+                <h3 className="text-sm font-semibold text-slate-900">{current.subject}</h3>
+              </div>
+              <div className="hidden sm:flex items-center gap-2">
+                <button className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-700 font-medium text-xs shadow-2xs">
+                  Reply
+                </button>
+                <button className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded text-slate-700 font-medium text-xs shadow-2xs">
+                  Forward
+                </button>
+              </div>
+            </div>
+            <div className="text-slate-600 text-[11px] space-y-0.5 font-sans">
+              <div>From: <span className="text-slate-900 font-medium">{current.from}</span></div>
+              <div>Date: <span className="text-slate-700">{current.date} ({current.time})</span></div>
+              <div>To: <span className="text-slate-700">Captain, 4th Precinct Command Staff</span></div>
             </div>
           </div>
-          <div className="text-slate-400 text-[11px] space-y-0.5 font-mono">
-            <div>FROM: <span className="text-slate-200">{current.from}</span></div>
-            <div>DATE: <span className="text-slate-300">{current.date} ({current.time})</span></div>
-            <div>TO: <span className="text-slate-300">Captain, 4th Precinct Command Staff</span></div>
+
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 font-sans text-slate-800 leading-relaxed whitespace-pre-line text-xs">
+            {current.body}
           </div>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-4 font-sans text-slate-300 leading-relaxed whitespace-pre-line text-xs">
-          {current.body}
-        </div>
-      </div>
+      )}
     </div>
   );
 };
