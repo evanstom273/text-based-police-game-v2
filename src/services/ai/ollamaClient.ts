@@ -16,6 +16,18 @@ export function normalizeHostUrl(url: string): string {
 }
 
 /**
+ * Strips internal thinking tags, reasoning processes, and artifacts from output text.
+ */
+export function cleanDialogueOutput(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '') // Strip full think tags
+    .replace(/^<think>[\s\S]*$/gi, '')         // Strip unfinished open think tags
+    .replace(/Thinking Process:[\s\S]*?\n\n/gi, '') // Strip thinking process blocks
+    .trim();
+}
+
+/**
  * Tests connection to Ollama host and retrieves available models with roundtrip latency.
  */
 export async function testOllamaConnection(
@@ -118,7 +130,7 @@ export async function fetchOllamaModels(config: OllamaConfig): Promise<OllamaMod
 }
 
 /**
- * Executes a text generation prompt via /api/chat with streaming and reasoning support.
+ * Executes a text generation prompt via /api/chat with streaming.
  */
 export async function generateOllamaCompletion(
   config: OllamaConfig,
@@ -149,7 +161,7 @@ export async function generateOllamaCompletion(
 }
 
 /**
- * Executes a multi-turn chat completion with streaming and reasoning token support.
+ * Executes a multi-turn chat completion with clean dialogue streaming.
  */
 export async function generateOllamaChat(
   config: OllamaConfig,
@@ -168,7 +180,7 @@ export async function generateOllamaChat(
     model,
     messages: options.messages,
     stream: isStreaming,
-    think: false,
+    think: false, // Clean direct dialogue output
     options: {
       temperature: options.temperature ?? config.temperature ?? 0.7,
       num_predict: 250,
@@ -195,7 +207,8 @@ export async function generateOllamaChat(
 
   if (!isStreaming) {
     const data = await response.json();
-    return data.message?.content || data.response || '';
+    const raw = data.message?.content || data.response || '';
+    return cleanDialogueOutput(raw);
   }
 
   const reader = response.body?.getReader();
@@ -204,6 +217,7 @@ export async function generateOllamaChat(
   const decoder = new TextDecoder('utf-8');
   let fullText = '';
   let buffer = '';
+  let inThinkTag = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -217,23 +231,23 @@ export async function generateOllamaChat(
       if (!line.trim()) continue;
       try {
         const json = JSON.parse(line);
+        const token = json.message?.content || (json.response !== undefined ? json.response : '');
 
-        // 1. Chat message format (recommended)
-        if (json.message) {
-          if (json.message.content) {
-            fullText += json.message.content;
-            options.onToken?.(json.message.content);
-          } else if (json.message.thinking) {
-            // Reasoning stream tokens
-            options.onToken?.(json.message.thinking);
+        if (token) {
+          // Check for <think> tags in token stream
+          if (token.includes('<think>')) inThinkTag = true;
+          if (token.includes('</think>')) {
+            inThinkTag = false;
+            continue;
           }
-        }
-        // 2. Generate fallback format
-        else if (json.response !== undefined && json.response !== '') {
-          fullText += json.response;
-          options.onToken?.(json.response);
-        } else if (json.thinking !== undefined && json.thinking !== '') {
-          options.onToken?.(json.thinking);
+
+          if (!inThinkTag) {
+            const cleanToken = token.replace(/<think>|<\/think>/g, '');
+            if (cleanToken) {
+              fullText += cleanToken;
+              options.onToken?.(cleanToken);
+            }
+          }
         }
 
         if (json.done) {
@@ -245,5 +259,5 @@ export async function generateOllamaChat(
     }
   }
 
-  return fullText;
+  return cleanDialogueOutput(fullText);
 }
