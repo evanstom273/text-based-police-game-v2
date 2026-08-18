@@ -49,7 +49,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
     'record'
   );
 
-  const { status: aiStatus, config: aiConfig, generateText, generateChat } = useAI();
+  const { status: aiStatus, config: aiConfig, models, updateConfig, generateText, generateChat } = useAI();
 
   const chatStorageKey = `precinct_chat_v2_${officer.id}`;
   const evalStorageKey = `precinct_eval_v2_${officer.id}`;
@@ -700,11 +700,27 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
-                  <Zap className="w-3 h-3 text-amber-400" />
-                  Model: {aiConfig.selectedModel}
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded px-2 py-0.5">
+                  <Zap className="w-3 h-3 text-amber-400 shrink-0" />
+                  <select
+                    value={aiConfig.selectedModel}
+                    onChange={(e) => updateConfig({ selectedModel: e.target.value })}
+                    className="bg-transparent text-slate-200 text-[10px] font-mono focus:outline-none cursor-pointer"
+                  >
+                    {models.length > 0 ? (
+                      models.map((m) => (
+                        <option key={m.name} value={m.name} className="bg-slate-900 text-slate-100">
+                          {m.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value={aiConfig.selectedModel} className="bg-slate-900 text-slate-100">
+                        {aiConfig.selectedModel}
+                      </option>
+                    )}
+                  </select>
+                </div>
 
                 <button
                   onClick={handleClearChatHistory}
