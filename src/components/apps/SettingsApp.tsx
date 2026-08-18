@@ -10,6 +10,7 @@ import {
   Sliders,
   Terminal,
   Server,
+  Info,
 } from 'lucide-react';
 
 export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => {
@@ -32,7 +33,15 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
   );
   const [testOutput, setTestOutput] = useState('');
   const [isRunningPrompt, setIsRunningPrompt] = useState(false);
+  const [tokenCount, setTokenCount] = useState(0);
   const [activeTab, setActiveTab] = useState<'network' | 'diagnostic' | 'tailscale'>('network');
+
+  const isHttpsDeployment = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  const isMixedContentRisk =
+    isHttpsDeployment &&
+    hostInput.startsWith('http://') &&
+    !hostInput.includes('localhost') &&
+    !hostInput.includes('127.0.0.1');
 
   const handleApplyHost = (url: string) => {
     setHostInput(url);
@@ -48,12 +57,14 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
     if (!testPrompt.trim()) return;
     setIsRunningPrompt(true);
     setTestOutput('');
+    setTokenCount(0);
 
     try {
       await generateText({
         prompt: testPrompt,
         stream: true,
         onToken: (token) => {
+          setTokenCount((c) => c + 1);
           setTestOutput((prev) => prev + token);
         },
       });
@@ -156,6 +167,24 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
       <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
         {activeTab === 'network' && (
           <div className="space-y-4 max-w-2xl">
+            {/* Mixed Content Alert for HTTPS Cloud Deployments */}
+            {isMixedContentRisk && (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-[11px] text-amber-900 flex items-start gap-2.5">
+                <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <strong className="block">HTTPS Mixed Content Notice:</strong>
+                  <p>
+                    Because this app is loaded over HTTPS ({window.location.hostname}), your browser blocks plain{' '}
+                    <code>http://100.x.y.z</code> IP connections.
+                  </p>
+                  <p>
+                    Use <strong>Tailscale Serve with HTTPS</strong> (e.g.{' '}
+                    <code>https://laptop-2u2vc12n.tailnet.ts.net</code>) to route securely.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Host Configuration Card */}
             <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
@@ -177,7 +206,7 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                   <button
                     onClick={() => handleApplyHost('http://localhost:3847')}
                     className={`px-2.5 py-1 rounded text-xs font-medium border transition ${
-                      hostInput.includes('3847')
+                      hostInput.includes('3847') && !hostInput.startsWith('https://')
                         ? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
@@ -195,10 +224,14 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                     Direct Ollama (localhost:11434)
                   </button>
                   <button
-                    onClick={() => handleApplyHost('https://YOUR-MACHINE.tailnet.ts.net')}
-                    className="px-2.5 py-1 rounded text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition"
+                    onClick={() => handleApplyHost('https://laptop-2u2vc12n.tailnet.ts.net')}
+                    className={`px-2.5 py-1 rounded text-xs font-medium border transition ${
+                      hostInput.includes('laptop-2u2vc12n')
+                        ? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
                   >
-                    Tailscale HTTPS (MagicDNS)
+                    Tailscale HTTPS (laptop-2u2vc12n)
                   </button>
                 </div>
               </div>
@@ -210,7 +243,7 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                     type="text"
                     value={hostInput}
                     onChange={(e) => setHostInput(e.target.value)}
-                    placeholder="http://localhost:11434 or http://100.x.y.z:11434"
+                    placeholder="http://localhost:3847 or https://laptop-2u2vc12n.tailnet.ts.net"
                     className="flex-1 bg-slate-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 font-mono"
                   />
                   <button
@@ -248,7 +281,7 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                   <select
                     value={config.selectedModel}
                     onChange={(e) => updateConfig({ selectedModel: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 font-mono"
                   >
                     {models.map((m) => (
                       <option key={m.name} value={m.name}>
@@ -262,7 +295,7 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                       type="text"
                       value={config.selectedModel}
                       onChange={(e) => updateConfig({ selectedModel: e.target.value })}
-                      placeholder="e.g. llama3.2, mistral, gemma2"
+                      placeholder="e.g. qwen3.5:4b, llama3.2, mistral"
                       className="flex-1 bg-slate-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-900 font-mono"
                     />
                   </div>
@@ -309,28 +342,39 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                 />
               </div>
 
-              <button
-                onClick={handleExecutePrompt}
-                disabled={isRunningPrompt || status !== 'connected'}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded text-xs transition flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
-              >
-                {isRunningPrompt ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Generating Stream...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5" />
-                    Run Live Prompt Test
-                  </>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleExecutePrompt}
+                  disabled={isRunningPrompt || status !== 'connected'}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded text-xs transition flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
+                >
+                  {isRunningPrompt ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Streaming Response...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5" />
+                      Run Live Prompt Test
+                    </>
+                  )}
+                </button>
+
+                {isRunningPrompt && (
+                  <span className="text-[11px] text-slate-500 font-mono animate-pulse">
+                    Receiving tokens ({tokenCount})...
+                  </span>
                 )}
-              </button>
+              </div>
 
               {testOutput && (
                 <div className="space-y-1.5 pt-2">
-                  <span className="text-[11px] font-semibold text-slate-700 block">Model Stream Response:</span>
-                  <div className="p-3 bg-slate-900 text-slate-100 rounded-md font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-slate-700 block">Model Stream Response:</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{tokenCount} tokens received</span>
+                  </div>
+                  <div className="p-3 bg-slate-900 text-slate-100 rounded-md font-mono text-xs whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto border border-slate-800">
                     {testOutput}
                   </div>
                 </div>
@@ -350,14 +394,14 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
             <div className="space-y-2.5 text-slate-700 text-xs leading-relaxed">
               <p>
                 To run <strong>Precinct Command</strong> on a mobile phone (PWA), tablet, or secondary laptop while
-                generating AI responses from your powerful local GPU running Ollama:
+                generating AI responses from your local GPU running Ollama:
               </p>
 
               <div className="space-y-2 pl-2 border-l-2 border-blue-400">
                 <div className="space-y-0.5">
                   <strong className="text-slate-900">1. Install Tailscale on Both Devices:</strong>
                   <p className="text-slate-600 text-[11px]">
-                    Ensure your host PC (running Ollama) and your client device (phone or laptop) are logged into the same Tailnet.
+                    Ensure your host PC (running Ollama and backend) and your phone/client are logged into the same Tailnet.
                   </p>
                 </div>
 
@@ -380,15 +424,17 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                     Expose port 3847 over your encrypted Tailscale mesh with automatic HTTPS:
                   </p>
                   <pre className="p-2 bg-slate-900 text-slate-200 rounded font-mono text-[10px] mt-1 overflow-x-auto">
-                    tailscale serve --bg --https=443 http://127.0.0.1:3847
+                    & "C:\Program Files\Tailscale\tailscale.exe" serve --bg --https=443 http://127.0.0.1:3847
                   </pre>
                 </div>
 
                 <div className="space-y-0.5">
-                  <strong className="text-slate-900">4. Connect on Phone / Tablet:</strong>
+                  <strong className="text-slate-900">4. Connect on Phone / Tablet / Web:</strong>
                   <p className="text-slate-600 text-[11px]">
-                    In Settings, set your Host URL to your Tailscale MagicDNS address (e.g.{' '}
-                    <code className="bg-slate-100 px-1 py-0.2 rounded font-mono text-blue-700">https://YOUR-MACHINE.tailnet.ts.net</code>)
+                    In Settings, set your Host URL to your Tailscale MagicDNS address:
+                    <code className="bg-slate-100 px-1 py-0.2 rounded font-mono text-blue-700 block mt-1">
+                      https://laptop-2u2vc12n.tailnet.ts.net
+                    </code>
                     and click <strong>Test & Connect</strong>.
                   </p>
                 </div>

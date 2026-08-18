@@ -74,11 +74,19 @@ export async function testOllamaConnection(
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
+    const isHttpsApp = typeof window !== 'undefined' && window.location.protocol === 'https:';
+    const isHttpTarget = host.startsWith('http://') && !host.includes('localhost') && !host.includes('127.0.0.1');
+
+    let hint = '';
+    if (isHttpsApp && isHttpTarget) {
+      hint = ' Browser blocked unencrypted HTTP connection from HTTPS page (Mixed Content). Use Tailscale HTTPS (https://*.ts.net) or run locally.';
+    }
+
     return {
       success: false,
       errorMessage: errorMsg.includes('abort')
         ? 'Connection timed out. Check host URL, Tailscale, or backend status.'
-        : `Connection failed: ${errorMsg}. (Ensure Ollama / backend server is running on ${host}).`,
+        : `Connection failed: ${errorMsg}.${hint}`,
       models: [],
     };
   }
@@ -110,97 +118,38 @@ export async function fetchOllamaModels(config: OllamaConfig): Promise<OllamaMod
 }
 
 /**
- * Executes a text generation prompt with optional streaming.
+ * Executes a text generation prompt via /api/chat with streaming and reasoning support.
  */
 export async function generateOllamaCompletion(
   config: OllamaConfig,
   options: GenerateOptions
 ): Promise<string> {
-  const host = normalizeHostUrl(config.hostUrl);
-  const model = options.model || config.selectedModel;
-
-  if (!model) {
-    throw new Error('No Ollama model selected. Please select a model in System Settings.');
-  }
-
-  const isStreaming = Boolean(options.stream && options.onToken);
-
-  const payload: Record<string, unknown> = {
-    model,
-    prompt: options.prompt,
-    stream: isStreaming,
-    options: {
-      temperature: options.temperature ?? config.temperature ?? 0.7,
-    },
-  };
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [];
 
   if (options.system || config.systemPrompt) {
-    payload.system = options.system || config.systemPrompt;
+    messages.push({
+      role: 'system',
+      content: options.system || config.systemPrompt || '',
+    });
   }
 
-  if (options.format === 'json') {
-    payload.format = 'json';
-  }
-
-  const response = await fetch(`${host}/api/generate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify(payload),
+  messages.push({
+    role: 'user',
+    content: options.prompt,
   });
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => response.statusText);
-    throw new Error(`Ollama Generation Error (${response.status}): ${errText}`);
-  }
-
-  if (!isStreaming) {
-    const data = await response.json();
-    return data.response || data.thinking || '';
-  }
-
-  // Stream reader
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error('Response body stream is not readable.');
-
-  const decoder = new TextDecoder('utf-8');
-  let fullText = '';
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const parsed = JSON.parse(line);
-        // Handle standard response tokens
-        if (parsed.response !== undefined && parsed.response !== '') {
-          fullText += parsed.response;
-          options.onToken?.(parsed.response);
-        }
-        // Handle reasoning / thinking tokens (Qwen 3.5, DeepSeek R1)
-        else if (parsed.thinking !== undefined && parsed.thinking !== '') {
-          options.onToken?.(parsed.thinking);
-        }
-      } catch {
-        // Skip partial JSON chunks
-      }
-    }
-  }
-
-  return fullText;
+  return generateOllamaChat(config, {
+    model: options.model,
+    messages,
+    temperature: options.temperature,
+    stream: options.stream,
+    format: options.format,
+    onToken: options.onToken,
+  });
 }
 
 /**
- * Executes a multi-turn chat completion.
+ * Executes a multi-turn chat completion with streaming and reasoning token support.
  */
 export async function generateOllamaChat(
   config: OllamaConfig,
@@ -219,6 +168,7 @@ export async function generateOllamaChat(
     model,
     messages: options.messages,
     stream: isStreaming,
+    think: true,
     options: {
       temperature: options.temperature ?? config.temperature ?? 0.7,
     },
@@ -244,7 +194,7 @@ export async function generateOllamaChat(
 
   if (!isStreaming) {
     const data = await response.json();
-    return data.message?.content || '';
+    return data.message?.content || data.response || '';
   }
 
   const reader = response.body?.getReader();
@@ -265,12 +215,28 @@ export async function generateOllamaChat(
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        const parsed = JSON.parse(line);
-        if (parsed.message?.content) {
-          fullText += parsed.message.content;
-          options.onToken?.(parsed.message.content);
-        } else if (parsed.message?.thinking) {
-          options.onToken?.(parsed.message.thinking);
+        const json = JSON.parse(line);
+
+        // 1. Chat message format (recommended)
+        if (json.message) {
+          if (json.message.content) {
+            fullText += json.message.content;
+            options.onToken?.(json.message.content);
+          } else if (json.message.thinking) {
+            // Reasoning stream tokens
+            options.onToken?.(json.message.thinking);
+          }
+        }
+        // 2. Generate fallback format
+        else if (json.response !== undefined && json.response !== '') {
+          fullText += json.response;
+          options.onToken?.(json.response);
+        } else if (json.thinking !== undefined && json.thinking !== '') {
+          options.onToken?.(json.thinking);
+        }
+
+        if (json.done) {
+          break;
         }
       } catch {
         // Skip partial JSON chunks
