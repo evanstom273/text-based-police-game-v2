@@ -6,6 +6,31 @@ import { VitePWA } from 'vite-plugin-pwa';
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
+  server: {
+    port: 5173,
+    proxy: {
+      '/api/precinct': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+      },
+      '/api/tags': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+      },
+      '/api/chat': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+      },
+      '/api/generate': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+      },
+      '/health': {
+        target: 'http://127.0.0.1:3847',
+        changeOrigin: true,
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

@@ -175,20 +175,30 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                 <span className="text-[11px] text-slate-500 block">Host Presets:</span>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => handleApplyHost('http://localhost:11434')}
+                    onClick={() => handleApplyHost('http://localhost:3847')}
                     className={`px-2.5 py-1 rounded text-xs font-medium border transition ${
-                      hostInput.includes('localhost')
+                      hostInput.includes('3847')
                         ? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
-                    Local Machine (localhost:11434)
+                    Backend Server (localhost:3847)
                   </button>
                   <button
-                    onClick={() => handleApplyHost('http://100.100.100.100:11434')}
+                    onClick={() => handleApplyHost('http://localhost:11434')}
+                    className={`px-2.5 py-1 rounded text-xs font-medium border transition ${
+                      hostInput.includes('11434')
+                        ? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Direct Ollama (localhost:11434)
+                  </button>
+                  <button
+                    onClick={() => handleApplyHost('https://YOUR-MACHINE.tailnet.ts.net')}
                     className="px-2.5 py-1 rounded text-xs font-medium bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition"
                   >
-                    Tailscale IP Template (100.x.y.z)
+                    Tailscale HTTPS (MagicDNS)
                   </button>
                 </div>
               </div>
@@ -352,23 +362,33 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                 </div>
 
                 <div className="space-y-0.5">
-                  <strong className="text-slate-900">2. Configure Ollama Host Permissions (CORS & Binding):</strong>
+                  <strong className="text-slate-900">2. Start the Precinct Command Backend Server:</strong>
                   <p className="text-slate-600 text-[11px]">
-                    On your Ollama host machine, set environment variables so Ollama binds to all network interfaces and accepts cross-origin web requests:
+                    Run the background server on your host machine to handle SQLite game saves and Ollama proxying:
                   </p>
                   <pre className="p-2 bg-slate-900 text-slate-200 rounded font-mono text-[10px] mt-1 overflow-x-auto">
-                    # Windows (PowerShell System Environment):{'\n'}
-                    $env:OLLAMA_HOST = "0.0.0.0:11434"{'\n'}
-                    $env:OLLAMA_ORIGINS = "*"{'\n'}
-                    ollama serve
+                    # Terminal / PowerShell:{'\n'}
+                    npm run dev:server{'\n'}
+                    # Or with PM2 daemon:{'\n'}
+                    pm2 start ecosystem.config.cjs
                   </pre>
                 </div>
 
                 <div className="space-y-0.5">
-                  <strong className="text-slate-900">3. Enter Tailscale IP in Precinct Command:</strong>
+                  <strong className="text-slate-900">3. Expose Server Securely via Tailscale Serve:</strong>
                   <p className="text-slate-600 text-[11px]">
-                    In the <strong>Endpoint & Models</strong> tab, enter your Ollama host's Tailscale 100.x.y.z IP (e.g.{' '}
-                    <code className="bg-slate-100 px-1 py-0.2 rounded font-mono text-blue-700">http://100.115.42.10:11434</code>)
+                    Expose port 3847 over your encrypted Tailscale mesh with automatic HTTPS:
+                  </p>
+                  <pre className="p-2 bg-slate-900 text-slate-200 rounded font-mono text-[10px] mt-1 overflow-x-auto">
+                    tailscale serve --bg --https=443 http://127.0.0.1:3847
+                  </pre>
+                </div>
+
+                <div className="space-y-0.5">
+                  <strong className="text-slate-900">4. Connect on Phone / Tablet:</strong>
+                  <p className="text-slate-600 text-[11px]">
+                    In Settings, set your Host URL to your Tailscale MagicDNS address (e.g.{' '}
+                    <code className="bg-slate-100 px-1 py-0.2 rounded font-mono text-blue-700">https://YOUR-MACHINE.tailnet.ts.net</code>)
                     and click <strong>Test & Connect</strong>.
                   </p>
                 </div>
@@ -377,7 +397,7 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
               <div className="p-2.5 bg-blue-50 border border-blue-200 rounded text-[11px] text-blue-900 flex items-center gap-2 mt-2">
                 <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
                 <span>
-                  Once connected, all simulation narrative requests will seamlessly route through your private Tailscale VPN tunnel.
+                  All game saves, roster states, and AI inference requests will stream seamlessly through your encrypted Tailscale VPN tunnel.
                 </span>
               </div>
             </div>

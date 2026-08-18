@@ -8,6 +8,9 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
+    "dev:server": "npm run dev --prefix server",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "postinstall": "node scripts/postinstall.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
