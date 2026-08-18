@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="96" fill="#0d1527"/>
+  <!-- Outer Shield Trim -->
+  <path d="M256 44 L416 112 C416 288 336 416 256 468 C176 416 96 288 96 112 Z" fill="#0f1f3d" stroke="#3b82f6" stroke-width="14" stroke-linejoin="round"/>
+  <!-- Inner Shield -->
+  <path d="M256 76 L386 132 C386 276 320 380 256 424 C192 380 126 276 126 132 Z" fill="#1e293b" stroke="#60a5fa" stroke-width="6"/>
+  <!-- Center Department Star / Star Crest -->
+  <polygon points="256,140 286,218 370,224 306,278 326,360 256,316 186,360 206,278 142,224 226,218" fill="#38bdf8" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>
+  <!-- Center Eagle / Precinct 4 Inset -->
+  <circle cx="256" cy="256" r="38" fill="#0d1527" stroke="#38bdf8" stroke-width="4"/>
+  <text x="256" y="266" text-anchor="middle" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="900" letter-spacing="1">4</text>
+  <!-- Top Arch Banner -->
+  <path d="M160 100 Q256 70 352 100" fill="none" stroke="#38bdf8" stroke-width="4"/>
+  <!-- Bottom Ribbon -->
+  <rect x="156" y="400" width="200" height="28" rx="6" fill="#1d4ed8" stroke="#60a5fa" stroke-width="3"/>
+  <text x="256" y="419" text-anchor="middle" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="800" letter-spacing="2">PRECINCT 4</text>
+</svg>
