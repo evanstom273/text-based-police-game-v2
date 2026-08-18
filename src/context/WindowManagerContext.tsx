@@ -58,7 +58,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!appDef) return;
 
     setWindows((prev) => {
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
       // Check if this app window already exists
       const existing = prev.find((w) => w.appId === appId);
@@ -208,7 +208,7 @@ export const WindowManagerProvider: React.FC<{ children: React.ReactNode }> = ({
       const win = prev.find((w) => w.id === windowId);
       if (!win) return prev;
 
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
 
       if (win.state === 'minimised') {
         zIndexCounter.current += 1;

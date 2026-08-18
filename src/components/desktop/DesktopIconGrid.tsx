@@ -12,7 +12,7 @@ const PADDING_LEFT = 24;
 
 export const DesktopIconGrid: React.FC = () => {
   const { openWindow } = useWindowManager();
-  const isMobile = useIsMobile(768);
+  const isMobile = useIsMobile(640);
 
   const [icons, setIcons] = useState<DesktopIconItem[]>(() => {
     return APP_LIST.map((app) => ({
@@ -65,9 +65,16 @@ export const DesktopIconGrid: React.FC = () => {
     return { col: targetCol, row: targetRow };
   };
 
-  const handleIconPointerDown = (e: React.PointerEvent, icon: DesktopIconItem) => {
+  const handleIconPointerDown = (e: React.PointerEvent<HTMLDivElement>, icon: DesktopIconItem) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+
+    const targetEl = e.currentTarget;
+    try {
+      targetEl.setPointerCapture(e.pointerId);
+    } catch {
+      // Safe fallback
+    }
 
     const now = Date.now();
     const isDoubleTap = dragStartPos.current && dragStartPos.current.iconId === icon.id && (now - dragStartPos.current.lastTapTime < 350);
@@ -110,6 +117,14 @@ export const DesktopIconGrid: React.FC = () => {
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
+      try {
+        if (targetEl.hasPointerCapture(upEvent.pointerId)) {
+          targetEl.releasePointerCapture(upEvent.pointerId);
+        }
+      } catch {
+        // Safe fallback
+      }
+
       if (dragStartPos.current && dragStartPos.current.hasMoved) {
         const deltaX = upEvent.clientX - dragStartPos.current.startX;
         const deltaY = upEvent.clientY - dragStartPos.current.startY;
@@ -131,14 +146,14 @@ export const DesktopIconGrid: React.FC = () => {
       }
 
       setDraggingIcon(null);
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('pointercancel', handlePointerUp);
+      targetEl.removeEventListener('pointermove', handlePointerMove);
+      targetEl.removeEventListener('pointerup', handlePointerUp);
+      targetEl.removeEventListener('pointercancel', handlePointerUp);
     };
 
-    document.addEventListener('pointermove', handlePointerMove);
-    document.addEventListener('pointerup', handlePointerUp);
-    document.addEventListener('pointercancel', handlePointerUp);
+    targetEl.addEventListener('pointermove', handlePointerMove);
+    targetEl.addEventListener('pointerup', handlePointerUp);
+    targetEl.addEventListener('pointercancel', handlePointerUp);
   };
 
   const handleDoubleClick = (appId: string) => {

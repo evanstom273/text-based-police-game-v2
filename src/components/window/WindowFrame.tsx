@@ -11,7 +11,7 @@ interface WindowFrameProps {
 }
 
 export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
-  const isMobile = useIsMobile(768);
+  const isMobile = useIsMobile(640);
   const {
     focusWindow,
     closeWindow,
@@ -24,20 +24,9 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
   } = useWindowManager();
 
   const appDef = getAppById(win.appId);
-  const dragRef = useRef<{
-    startX: number;
-    startY: number;
-    initialRect: { x: number; y: number; width: number; height: number };
-    currentSnapTarget: SnapTarget;
-  } | null>(null);
+  const windowRef = useRef<HTMLDivElement>(null);
 
-  const resizeRef = useRef<{
-    direction: string;
-    startX: number;
-    startY: number;
-    initialRect: { x: number; y: number; width: number; height: number };
-  } | null>(null);
-
+  // If minimised, do not render in the viewport
   if (win.state === 'minimised') {
     return null;
   }
@@ -47,15 +36,24 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
   const isSnappedRight = !isMobile && win.state === 'snapped-right';
   const isFixedState = isMaximized || isSnappedLeft || isSnappedRight;
 
-  // Handle Dragging using Pointer Events (touch & mouse)
-  const handleHeaderPointerDown = (e: React.PointerEvent) => {
+  // Touch & Mouse Window Dragging with Pointer Capture and Zero React Re-render Lag
+  const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isMobile) return;
+    // Only primary button / single touch point
     if (e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
 
     focusWindow(win.id);
 
+    const dragHandle = e.currentTarget;
+    try {
+      dragHandle.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if pointer capture fails
+    }
+
     let startRect = { ...win.rect };
 
+    // If window was maximised or snapped, revert to normal geometry centered under pointer
     if (isFixedState) {
       const normalWidth = win.previousRect?.width || win.minWidth || 800;
       const normalHeight = win.previousRect?.height || win.minHeight || 500;
@@ -69,30 +67,36 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         height: normalHeight,
       };
 
-      updateWindowRect(win.id, startRect);
+      if (windowRef.current) {
+        windowRef.current.style.width = `${normalWidth}px`;
+        windowRef.current.style.height = `${normalHeight}px`;
+        windowRef.current.style.transform = `translate3d(${newX}px, ${newY}px, 0)`;
+      }
+
       restoreWindow(win.id);
     }
 
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      initialRect: startRect,
-      currentSnapTarget: 'none',
-    };
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let currentX = startRect.x;
+    let currentY = startRect.y;
+    let currentSnap: SnapTarget = 'none';
 
     setWindowDragging(true, 'none');
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (!dragRef.current) return;
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
 
-      const deltaX = moveEvent.clientX - dragRef.current.startX;
-      const deltaY = moveEvent.clientY - dragRef.current.startY;
+      currentX = startRect.x + deltaX;
+      currentY = Math.max(0, startRect.y + deltaY);
 
-      const newX = dragRef.current.initialRect.x + deltaX;
-      const newY = Math.max(0, dragRef.current.initialRect.y + deltaY);
+      // Direct DOM update for instantaneous 60-120fps tracking with no React re-rendering
+      if (windowRef.current) {
+        windowRef.current.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+      }
 
-      updateWindowRect(win.id, { x: newX, y: newY });
-
+      // Edge snapping detection
       let snap: SnapTarget = 'none';
       const snapThreshold = 25;
 
@@ -104,66 +108,78 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         snap = 'right';
       }
 
-      dragRef.current.currentSnapTarget = snap;
-      setWindowDragging(true, snap);
-    };
-
-    const handlePointerUp = () => {
-      if (dragRef.current) {
-        const finalSnap = dragRef.current.currentSnapTarget;
-        if (finalSnap !== 'none') {
-          applySnap(win.id, finalSnap);
-        }
+      if (snap !== currentSnap) {
+        currentSnap = snap;
+        setWindowDragging(true, snap);
       }
-      dragRef.current = null;
-      setWindowDragging(false, 'none');
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('pointercancel', handlePointerUp);
     };
 
-    document.addEventListener('pointermove', handlePointerMove);
-    document.addEventListener('pointerup', handlePointerUp);
-    document.addEventListener('pointercancel', handlePointerUp);
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      try {
+        if (dragHandle.hasPointerCapture(upEvent.pointerId)) {
+          dragHandle.releasePointerCapture(upEvent.pointerId);
+        }
+      } catch {
+        // Safe fallback
+      }
+
+      dragHandle.removeEventListener('pointermove', handlePointerMove);
+      dragHandle.removeEventListener('pointerup', handlePointerUp);
+      dragHandle.removeEventListener('pointercancel', handlePointerUp);
+
+      setWindowDragging(false, 'none');
+
+      if (currentSnap !== 'none') {
+        applySnap(win.id, currentSnap);
+      } else {
+        // Commit final coordinates to state
+        updateWindowRect(win.id, { x: currentX, y: currentY });
+      }
+    };
+
+    dragHandle.addEventListener('pointermove', handlePointerMove);
+    dragHandle.addEventListener('pointerup', handlePointerUp);
+    dragHandle.addEventListener('pointercancel', handlePointerUp);
   };
 
-  // Handle Resizing using Pointer Events
-  const handleResizePointerDown = (direction: string, e: React.PointerEvent) => {
+  // Direct Resizing with Pointer Capture
+  const handleResizePointerDown = (direction: string, e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || isFixedState || isMobile) return;
     e.stopPropagation();
     e.preventDefault();
 
     focusWindow(win.id);
 
-    resizeRef.current = {
-      direction,
-      startX: e.clientX,
-      startY: e.clientY,
-      initialRect: { ...win.rect },
-    };
+    const resizeHandle = e.currentTarget;
+    try {
+      resizeHandle.setPointerCapture(e.pointerId);
+    } catch {
+      // Safe fallback
+    }
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialRect = { ...win.rect };
+
+    let newWidth = initialRect.width;
+    let newHeight = initialRect.height;
+    let newX = initialRect.x;
+    let newY = initialRect.y;
+
+    const minW = win.minWidth || 400;
+    const minH = win.minHeight || 300;
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (!resizeRef.current) return;
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
 
-      const deltaX = moveEvent.clientX - resizeRef.current.startX;
-      const deltaY = moveEvent.clientY - resizeRef.current.startY;
-      const { initialRect, direction: dir } = resizeRef.current;
-
-      let newWidth = initialRect.width;
-      let newHeight = initialRect.height;
-      let newX = initialRect.x;
-      let newY = initialRect.y;
-
-      const minW = win.minWidth || 400;
-      const minH = win.minHeight || 300;
-
-      if (dir.includes('e')) {
+      if (direction.includes('e')) {
         newWidth = Math.max(minW, initialRect.width + deltaX);
       }
-      if (dir.includes('s')) {
+      if (direction.includes('s')) {
         newHeight = Math.max(minH, initialRect.height + deltaY);
       }
-      if (dir.includes('w')) {
+      if (direction.includes('w')) {
         const potentialWidth = initialRect.width - deltaX;
         if (potentialWidth >= minW) {
           newWidth = potentialWidth;
@@ -173,7 +189,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
           newX = initialRect.x + (initialRect.width - minW);
         }
       }
-      if (dir.includes('n')) {
+      if (direction.includes('n')) {
         const potentialHeight = initialRect.height - deltaY;
         if (potentialHeight >= minH) {
           newHeight = potentialHeight;
@@ -184,6 +200,26 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         }
       }
 
+      if (windowRef.current) {
+        windowRef.current.style.width = `${newWidth}px`;
+        windowRef.current.style.height = `${newHeight}px`;
+        windowRef.current.style.transform = `translate3d(${newX}px, ${newY}px, 0)`;
+      }
+    };
+
+    const handlePointerUp = (upEvent: PointerEvent) => {
+      try {
+        if (resizeHandle.hasPointerCapture(upEvent.pointerId)) {
+          resizeHandle.releasePointerCapture(upEvent.pointerId);
+        }
+      } catch {
+        // Safe fallback
+      }
+
+      resizeHandle.removeEventListener('pointermove', handlePointerMove);
+      resizeHandle.removeEventListener('pointerup', handlePointerUp);
+      resizeHandle.removeEventListener('pointercancel', handlePointerUp);
+
       updateWindowRect(win.id, {
         x: newX,
         y: newY,
@@ -192,18 +228,12 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       });
     };
 
-    const handlePointerUp = () => {
-      resizeRef.current = null;
-      document.removeEventListener('pointermove', handlePointerMove);
-      document.removeEventListener('pointerup', handlePointerUp);
-      document.removeEventListener('pointercancel', handlePointerUp);
-    };
-
-    document.addEventListener('pointermove', handlePointerMove);
-    document.addEventListener('pointerup', handlePointerUp);
-    document.addEventListener('pointercancel', handlePointerUp);
+    resizeHandle.addEventListener('pointermove', handlePointerMove);
+    resizeHandle.addEventListener('pointerup', handlePointerUp);
+    resizeHandle.addEventListener('pointercancel', handlePointerUp);
   };
 
+  // Compute layout & position styling
   let containerStyle: React.CSSProperties = {};
 
   if (isMobile) {
@@ -212,7 +242,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       top: 0,
       left: 0,
       right: 0,
-      bottom: 44,
+      bottom: 44, // above taskbar
       zIndex: win.zIndex,
       borderRadius: 0,
     };
@@ -257,6 +287,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
 
   return (
     <div
+      ref={windowRef}
       style={containerStyle}
       onPointerDown={() => focusWindow(win.id)}
       className={`flex flex-col bg-white text-slate-900 transition-shadow duration-150 overflow-hidden ${
@@ -269,10 +300,11 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
             }`
       }`}
     >
-      {/* High-Contrast Distinct Window Header Bar */}
+      {/* High-Contrast Window Header Bar (Draggable with touch-action: none) */}
       <div
         onPointerDown={handleHeaderPointerDown}
         onDoubleClick={() => !isMobile && (isMaximized ? restoreWindow(win.id) : maximizeWindow(win.id))}
+        style={{ touchAction: 'none' }}
         className={`flex items-center justify-between px-3.5 py-2 select-none border-b transition-colors ${
           isMobile ? 'cursor-default' : 'cursor-move'
         } ${
@@ -335,7 +367,10 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       </div>
 
       {/* Clean, High-Legibility Light Application Content Area */}
-      <div className="flex-1 overflow-hidden relative bg-white text-slate-900">
+      <div 
+        style={{ touchAction: 'auto' }}
+        className="flex-1 overflow-hidden relative bg-white text-slate-900"
+      >
         {AppComponent ? (
           <AppComponent windowId={win.id} appId={win.appId} />
         ) : (
@@ -345,40 +380,48 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
         )}
       </div>
 
-      {/* 8-Directional Resize Handles (Desktop Only) */}
+      {/* 8-Directional Resize Handles (Desktop & Tablet Only) */}
       {!isFixedState && !isMobile && (
         <>
           <div
+            style={{ touchAction: 'none' }}
             onPointerDown={(e) => handleResizePointerDown('n', e)}
-            className="absolute top-0 left-2 right-2 h-1.5 cursor-ns-resize z-20"
+            className="absolute top-0 left-2 right-2 h-2 cursor-ns-resize z-20"
           />
           <div
+            style={{ touchAction: 'none' }}
             onPointerDown={(e) => handleResizePointerDown('s', e)}
-            className="absolute bottom-0 left-2 right-2 h-1.5 cursor-ns-resize z-20"
+            className="absolute bottom-0 left-2 right-2 h-2 cursor-ns-resize z-20"
           />
           <div
+            style={{ touchAction: 'none' }}
             onPointerDown={(e) => handleResizePointerDown('e', e)}
-            className="absolute right-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20"
+            className="absolute right-0 top-2 bottom-2 w-2 cursor-ew-resize z-20"
           />
           <div
+            style={{ touchAction: 'none' }}
             onPointerDown={(e) => handleResizePointerDown('w', e)}
-            className="absolute left-0 top-2 bottom-2 w-1.5 cursor-ew-resize z-20"
+            className="absolute left-0 top-2 bottom-2 w-2 cursor-ew-resize z-20"
           />
           <div
+            style={{ touchAction: 'none' }}
             onPointerDown={(e) => handleResizePointerDown('nw', e)}
-            className="absolute top-0 left-0 w-2.5 h-2.5 cursor-nwse-resize z-20"
+            className="absolute top-0 left-0 w-3 h-3 cursor-nwse-resize z-20"
           />
           <div
+            style={{ touchAction: 'none' }}
             onPointerDown={(e) => handleResizePointerDown('ne', e)}
-            className="absolute top-0 right-0 w-2.5 h-2.5 cursor-nesw-resize z-20"
+            className="absolute top-0 right-0 w-3 h-3 cursor-nesw-resize z-20"
           />
           <div
+            style={{ touchAction: 'none' }}
             onPointerDown={(e) => handleResizePointerDown('sw', e)}
-            className="absolute bottom-0 left-0 w-2.5 h-2.5 cursor-nesw-resize z-20"
+            className="absolute bottom-0 left-0 w-3 h-3 cursor-nesw-resize z-20"
           />
           <div
+            style={{ touchAction: 'none' }}
             onPointerDown={(e) => handleResizePointerDown('se', e)}
-            className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize z-20"
+            className="absolute bottom-0 right-0 w-3 h-3 cursor-nwse-resize z-20"
           />
         </>
       )}
