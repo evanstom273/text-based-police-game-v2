@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { APP_LIST } from '../../config/apps.config';
 import { AppIconRenderer } from '../common/AppIconRenderer';
 import { useWindowManager } from '../../context/WindowManagerContext';
-import { Shield, Search, Lock, ChevronRight } from 'lucide-react';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
+import { Shield, Search, Lock, ChevronRight, Download } from 'lucide-react';
 
 interface StartMenuProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface StartMenuProps {
 
 export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
   const { openWindow } = useWindowManager();
+  const { isInstallable, promptInstall } = usePWAInstall();
   const [searchTerm, setSearchTerm] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -44,6 +46,11 @@ export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
 
   const handleLaunch = (appId: string) => {
     openWindow(appId);
+    onClose();
+  };
+
+  const handleInstall = async () => {
+    await promptInstall();
     onClose();
   };
 
@@ -134,19 +141,32 @@ export const StartMenu: React.FC<StartMenuProps> = ({ isOpen, onClose }) => {
       </div>
 
       {/* Fixed Footer System Actions */}
-      <div className="shrink-0 p-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs select-none">
+      <div className="shrink-0 p-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs select-none gap-2">
         <div className="flex items-center gap-1.5 font-sans text-[10px] text-slate-400">
           <span>Precinct RMS 4.8</span>
         </div>
 
-        <button
-          onClick={onClose}
-          title="Lock Workstation"
-          className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 active:bg-slate-700 border border-slate-700 rounded text-[10px] text-slate-300 font-medium transition"
-        >
-          <Lock className="w-3 h-3 text-amber-400" />
-          LOCK
-        </button>
+        <div className="flex items-center gap-1.5">
+          {isInstallable && (
+            <button
+              onClick={handleInstall}
+              title="Install Precinct Command as App"
+              className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded text-[10px] font-medium transition shadow-sm"
+            >
+              <Download className="w-3 h-3" />
+              Install App
+            </button>
+          )}
+
+          <button
+            onClick={onClose}
+            title="Lock Workstation"
+            className="flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 active:bg-slate-700 border border-slate-700 rounded text-[10px] text-slate-300 font-medium transition"
+          >
+            <Lock className="w-3 h-3 text-amber-400" />
+            LOCK
+          </button>
+        </div>
       </div>
     </div>
   );
