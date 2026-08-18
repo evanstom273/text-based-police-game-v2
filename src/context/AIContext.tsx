@@ -143,9 +143,23 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         setModels(result.models);
         setLatencyMs(result.latencyMs ?? null);
         setVersion(result.version ?? null);
+
+        if (result.models.length > 0) {
+          const hasSelected = result.models.some((m) => m.name === config.selectedModel);
+          if (!hasSelected) {
+            setConfig((prev) => {
+              const updated = { ...prev, selectedModel: result.models[0].name };
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+              } catch {
+                // Ignore
+              }
+              return updated;
+            });
+          }
+        }
       } else {
         setStatus('disconnected');
-        // Do not display hard error on initial boot if Ollama is not yet launched
       }
     };
 

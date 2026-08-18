@@ -7,8 +7,12 @@ function nodeHttpRequest(url: string, init?: RequestInit): Promise<Response> {
   const parsed = new URL(url);
   const lib = parsed.protocol === 'https:' ? httpsRequest : httpRequest;
   const method = init?.method ?? 'GET';
-  const headers = init?.headers as Record<string, string> | undefined;
+  const headers: Record<string, string> = { ...((init?.headers as Record<string, string>) || {}) };
   const body = init?.body;
+
+  if (body && typeof body === 'string' && !headers['Content-Length'] && !headers['content-length']) {
+    headers['Content-Length'] = String(Buffer.byteLength(body));
+  }
 
   return new Promise((resolve, reject) => {
     const req = lib(

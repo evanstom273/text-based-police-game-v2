@@ -8,7 +8,7 @@ import type {
 
 export function normalizeHostUrl(url: string): string {
   let trimmed = url.trim();
-  if (!trimmed) return 'http://localhost:11434';
+  if (!trimmed) return 'http://localhost:3847';
   if (!/^https?:\/\//i.test(trimmed)) {
     trimmed = `http://${trimmed}`;
   }
@@ -77,8 +77,8 @@ export async function testOllamaConnection(
     return {
       success: false,
       errorMessage: errorMsg.includes('abort')
-        ? 'Connection timed out. Check host URL or Tailscale connection.'
-        : `Connection failed: ${errorMsg}. (Ensure Ollama is running and OLLAMA_ORIGINS is configured if using a remote or web client).`,
+        ? 'Connection timed out. Check host URL, Tailscale, or backend status.'
+        : `Connection failed: ${errorMsg}. (Ensure Ollama / backend server is running on ${host}).`,
       models: [],
     };
   }
@@ -158,7 +158,7 @@ export async function generateOllamaCompletion(
 
   if (!isStreaming) {
     const data = await response.json();
-    return data.response || '';
+    return data.response || data.thinking || '';
   }
 
   // Stream reader
@@ -181,9 +181,14 @@ export async function generateOllamaCompletion(
       if (!line.trim()) continue;
       try {
         const parsed = JSON.parse(line);
-        if (parsed.response) {
+        // Handle standard response tokens
+        if (parsed.response !== undefined && parsed.response !== '') {
           fullText += parsed.response;
           options.onToken?.(parsed.response);
+        }
+        // Handle reasoning / thinking tokens (Qwen 3.5, DeepSeek R1)
+        else if (parsed.thinking !== undefined && parsed.thinking !== '') {
+          options.onToken?.(parsed.thinking);
         }
       } catch {
         // Skip partial JSON chunks
@@ -264,6 +269,8 @@ export async function generateOllamaChat(
         if (parsed.message?.content) {
           fullText += parsed.message.content;
           options.onToken?.(parsed.message.content);
+        } else if (parsed.message?.thinking) {
+          options.onToken?.(parsed.message.thinking);
         }
       } catch {
         // Skip partial JSON chunks
