@@ -224,9 +224,9 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                     Direct Ollama (localhost:11434)
                   </button>
                   <button
-                    onClick={() => handleApplyHost('https://laptop-2u2vc12n.tailnet.ts.net')}
+                    onClick={() => handleApplyHost('https://laptop-2u2vc12n.tail344fd7.ts.net')}
                     className={`px-2.5 py-1 rounded text-xs font-medium border transition ${
-                      hostInput.includes('laptop-2u2vc12n')
+                      hostInput.includes('tail344fd7')
                         ? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
@@ -433,7 +433,7 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
                   <p className="text-slate-600 text-[11px]">
                     In Settings, set your Host URL to your Tailscale MagicDNS address:
                     <code className="bg-slate-100 px-1 py-0.2 rounded font-mono text-blue-700 block mt-1">
-                      https://laptop-2u2vc12n.tailnet.ts.net
+                      https://laptop-2u2vc12n.tail344fd7.ts.net
                     </code>
                     and click <strong>Test & Connect</strong>.
                   </p>
