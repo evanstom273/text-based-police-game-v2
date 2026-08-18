@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Officer } from '../../../domain/types/officer.types';
 import { getRankDefinition } from '../../../domain/definitions/ranks';
 import { getDivisionDefinition } from '../../../domain/definitions/divisions';
@@ -29,6 +29,8 @@ import {
   FileText,
   TrendingUp,
   Brain,
+  Trash2,
+  Zap,
 } from 'lucide-react';
 
 interface OfficerProfileModalProps {
@@ -49,21 +51,62 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
 
   const { status: aiStatus, config: aiConfig, generateText, generateChat } = useAI();
 
-  // Evaluation state
-  const [evaluationText, setEvaluationText] = useState<string>('');
+  const chatStorageKey = `precinct_chat_v2_${officer.id}`;
+  const evalStorageKey = `precinct_eval_v2_${officer.id}`;
+
+  // Evaluation state with local persistence
+  const [evaluationText, setEvaluationText] = useState<string>(() => {
+    try {
+      return localStorage.getItem(evalStorageKey) || '';
+    } catch {
+      return '';
+    }
+  });
   const [isGeneratingEval, setIsGeneratingEval] = useState(false);
 
-  // Chat state
+  // Chat state with local persistence
   const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatHistoryEntry[]>([
-    {
-      role: 'assistant',
-      content: `Captain. ${getOfficerShortName(officer)} here, on ${officer.shift.replace('_', ' ')}. What's on your mind?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatHistoryEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem(chatStorageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // Fallback
+    }
+    return [
+      {
+        role: 'assistant',
+        content: `Captain. ${getOfficerShortName(officer)} here, on ${officer.shift.replace('_', ' ')}. What's on your mind?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ];
+  });
+
   const [isStreamingChat, setIsStreamingChat] = useState(false);
   const [streamingReply, setStreamingReply] = useState('');
+
+  // Persist chat messages whenever updated
+  useEffect(() => {
+    try {
+      localStorage.setItem(chatStorageKey, JSON.stringify(chatMessages));
+    } catch {
+      // Storage unavailable
+    }
+  }, [chatMessages, chatStorageKey]);
+
+  // Persist evaluation text whenever updated
+  useEffect(() => {
+    try {
+      if (evaluationText) {
+        localStorage.setItem(evalStorageKey, evaluationText);
+      }
+    } catch {
+      // Storage unavailable
+    }
+  }, [evaluationText, evalStorageKey]);
 
   const rankDef = getRankDefinition(officer.rankId);
   const divDef = getDivisionDefinition(officer.divisionId);
@@ -74,6 +117,23 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
   const relationships = DEV_RELATIONSHIPS.filter(
     (r) => r.officerIdA === officer.id || r.officerIdB === officer.id
   );
+
+  // Clear chat history
+  const handleClearChatHistory = () => {
+    const defaultMsg: ChatHistoryEntry[] = [
+      {
+        role: 'assistant',
+        content: `Captain. ${getOfficerShortName(officer)} here, on ${officer.shift.replace('_', ' ')}. Comms log reset. What's the situation?`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ];
+    setChatMessages(defaultMsg);
+    try {
+      localStorage.removeItem(chatStorageKey);
+    } catch {
+      // Ignore
+    }
+  };
 
   // Handle AI Evaluation Generation
   const handleGenerateEvaluation = async () => {
@@ -120,6 +180,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
 
     const historyPayload = chatMessages
       .concat(userMsg)
+      .slice(-10) // Keep last 10 messages for fast prompt evaluation
       .map((m) => ({ role: m.role, content: m.content }));
 
     let accumulated = '';
@@ -147,7 +208,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
         ...prev,
         {
           role: 'assistant',
-          content: `[Static over comms]: Could not establish radio link. (${msg})`,
+          content: `[Static over comms]: Could not reach ${getOfficerShortName(officer)}. (${msg})`,
           timestamp: replyTime,
         },
       ]);
@@ -265,6 +326,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
         >
           <Sparkles className="w-3.5 h-3.5 text-amber-500" />
           AI Psychological Dossier
+          {evaluationText && <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>}
         </button>
         <button
           onClick={() => setActiveTab('chat')}
@@ -276,6 +338,11 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
         >
           <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
           In-Character Comms
+          {chatMessages.length > 1 && (
+            <span className="font-mono text-[9px] bg-blue-100 text-blue-800 px-1 rounded-full font-bold">
+              {chatMessages.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -632,9 +699,21 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
                   [{officer.callsign || `#${officer.badgeNumber}`}]
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">
-                Persona: {aiConfig.selectedModel}
-              </span>
+
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-amber-400" />
+                  Model: {aiConfig.selectedModel}
+                </span>
+
+                <button
+                  onClick={handleClearChatHistory}
+                  title="Clear Conversation History"
+                  className="p-1 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             {/* Quick Conversation Starters */}
@@ -736,7 +815,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
       {/* Footer Info */}
       <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
         <span>Confidential Officer Dossier • 4th Precinct Personnel Command</span>
-        <span>Secure Clearance: Captain / Commander</span>
+        <span>Secure Clearance: Captain / Commander • Persistent Comms</span>
       </div>
     </div>
   );

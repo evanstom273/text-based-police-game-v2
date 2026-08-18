@@ -168,9 +168,10 @@ export async function generateOllamaChat(
     model,
     messages: options.messages,
     stream: isStreaming,
-    think: true,
+    think: false,
     options: {
       temperature: options.temperature ?? config.temperature ?? 0.7,
+      num_predict: 250,
     },
   };
 
