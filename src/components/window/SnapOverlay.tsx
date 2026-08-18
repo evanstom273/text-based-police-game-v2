@@ -1,5 +1,5 @@
 import React from 'react';
-import { SnapTarget } from '../../types';
+import type { SnapTarget } from '../../types';
 
 interface SnapOverlayProps {
   snapTarget: SnapTarget;

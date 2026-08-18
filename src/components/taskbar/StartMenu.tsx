@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { APP_LIST } from '../../config/apps.config';
 import { AppIconRenderer } from '../common/AppIconRenderer';
 import { useWindowManager } from '../../context/WindowManagerContext';
-import { Shield, Search, Lock, RefreshCw, Power, Radio, Users, CheckCircle2, ChevronRight, FileText } from 'lucide-react';
+import { Shield, Search, Lock, ChevronRight } from 'lucide-react';
 
 interface StartMenuProps {
   isOpen: boolean;

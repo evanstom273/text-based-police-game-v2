@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, Volume2, ShieldCheck, Clock, Activity } from 'lucide-react';
+import { Wifi, Volume2, ShieldCheck } from 'lucide-react';
 
 export const SystemTray: React.FC = () => {
   const [timeStr, setTimeStr] = useState<string>('');

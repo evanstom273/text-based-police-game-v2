@@ -3,12 +3,11 @@ import { useWindowManager } from '../../context/WindowManagerContext';
 import { StartMenu } from './StartMenu';
 import { SystemTray } from './SystemTray';
 import { AppIconRenderer } from '../common/AppIconRenderer';
-import { getAppById } from '../../config/apps.config';
 import { Shield } from 'lucide-react';
 
 export const Taskbar: React.FC = () => {
   const [isStartMenuOpen, setIsStartMenuOpen] = useState(false);
-  const { windows, activeWindowId, toggleMinimizeWindow } = useWindowManager();
+  const { windows, toggleMinimizeWindow } = useWindowManager();
 
   return (
     <>
@@ -43,7 +42,6 @@ export const Taskbar: React.FC = () => {
             {windows.map((win) => {
               const isFocused = win.isFocused && win.state !== 'minimised';
               const isMinimised = win.state === 'minimised';
-              const appDef = getAppById(win.appId);
 
               return (
                 <button

@@ -1,8 +1,8 @@
-import React, { useRef, useCallback, useEffect } from 'react';
-import { WindowInstance, SnapTarget } from '../../types';
+import React, { useRef } from 'react';
+import type { WindowInstance, SnapTarget } from '../../types';
 import { useWindowManager } from '../../context/WindowManagerContext';
 import { AppIconRenderer } from '../common/AppIconRenderer';
-import { Minus, Square, Copy, X, Shield } from 'lucide-react';
+import { Minus, Square, Copy, X } from 'lucide-react';
 import { getAppById } from '../../config/apps.config';
 
 interface WindowFrameProps {
@@ -85,7 +85,7 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
     const handleMouseMove = (moveEvent: MouseEvent) => {
       if (!dragRef.current) return;
 
-      const deltaX = moveEvent.clientX - dragRef.current.startX;
+      const deltaX = moveEvent.clientX - dragStartPosDelta(moveEvent.clientX);
       const deltaY = moveEvent.clientY - dragRef.current.startY;
 
       const newX = dragRef.current.initialRect.x + deltaX;
@@ -108,6 +108,10 @@ export const WindowFrame: React.FC<WindowFrameProps> = ({ window: win }) => {
       dragRef.current.currentSnapTarget = snap;
       setWindowDragging(true, snap);
     };
+
+    function dragStartPosDelta(clientX: number) {
+      return dragRef.current ? dragRef.current.startX : clientX;
+    }
 
     const handleMouseUp = () => {
       if (dragRef.current) {

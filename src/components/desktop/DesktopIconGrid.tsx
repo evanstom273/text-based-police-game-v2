@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { DesktopIconItem } from '../../types';
+import React, { useState, useRef } from 'react';
+import type { DesktopIconItem } from '../../types';
 import { APP_LIST } from '../../config/apps.config';
 import { AppIconRenderer } from '../common/AppIconRenderer';
 import { useWindowManager } from '../../context/WindowManagerContext';
