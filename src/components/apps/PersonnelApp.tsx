@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { Search } from 'lucide-react';
+import type { Officer } from '../../domain/types/officer.types';
 import { DEV_OFFICERS } from '../../domain/seed/devOfficers';
 import { getRankDefinition } from '../../domain/definitions/ranks';
 import { getDivisionDefinition } from '../../domain/definitions/divisions';
 import { getOfficerFullName } from '../../domain/helpers/nameHelpers';
+import { OfficerProfileModal } from './personnel/OfficerProfileModal';
 
 export const PersonnelApp: React.FC<{ windowId: string; appId: string }> = () => {
   const [selectedDivision, setSelectedDivision] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOfficer, setSelectedOfficer] = useState<Officer | null>(null);
 
   const officers = DEV_OFFICERS;
 
@@ -35,7 +38,7 @@ export const PersonnelApp: React.FC<{ windowId: string; appId: string }> = () =>
   const onCallCount = officers.filter((o) => o.dutyStatus === 'on_call').length;
 
   return (
-    <div className="flex flex-col h-full bg-white text-slate-900 text-xs font-sans select-text">
+    <div className="relative flex flex-col h-full bg-white text-slate-900 text-xs font-sans select-text overflow-hidden">
       {/* Top Filter & Stats Bar */}
       <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -101,17 +104,23 @@ export const PersonnelApp: React.FC<{ windowId: string; appId: string }> = () =>
               const fullName = getOfficerFullName(officer);
 
               return (
-                <tr key={officer.id} className="hover:bg-slate-50 transition cursor-pointer">
-                  <td className="py-2.5 px-3.5 font-mono font-semibold text-blue-700">
+                <tr
+                  key={officer.id}
+                  onClick={() => setSelectedOfficer(officer)}
+                  className="hover:bg-blue-50/50 transition cursor-pointer group"
+                >
+                  <td className="py-2.5 px-3.5 font-mono font-semibold text-blue-700 group-hover:text-blue-900">
                     #{officer.badgeNumber}
                   </td>
                   <td className="py-2.5 px-3.5 font-medium text-slate-900 flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 text-[10px] font-bold text-slate-600">
+                    <div className="w-6 h-6 rounded-full bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center border border-slate-200 text-[10px] font-bold text-slate-600 group-hover:text-blue-800 transition">
                       {officer.firstName[0]}
                       {officer.lastName[0]}
                     </div>
                     <div>
-                      <div>{fullName}</div>
+                      <div className="font-semibold text-slate-900 group-hover:text-blue-700 transition">
+                        {fullName}
+                      </div>
                       {officer.callsign && (
                         <div className="text-[10px] text-slate-400 font-mono">{officer.callsign}</div>
                       )}
@@ -172,9 +181,17 @@ export const PersonnelApp: React.FC<{ windowId: string; appId: string }> = () =>
 
       {/* Footer Info */}
       <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
-        <span>Department Personnel Database — 4th Precinct Canonical Record</span>
+        <span>Department Personnel Database — Click any officer to open dossier & comms</span>
         <span>Authorized: Command Staff</span>
       </div>
+
+      {/* Officer Profile Dossier Modal */}
+      {selectedOfficer && (
+        <OfficerProfileModal
+          officer={selectedOfficer}
+          onClose={() => setSelectedOfficer(null)}
+        />
+      )}
     </div>
   );
 };
