@@ -7,8 +7,8 @@ export type AIConnectionStatus = 'disconnected' | 'connecting' | 'connected' | '
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-lite';
 
 export interface GeminiConfig {
-	/** Backend server URL that proxies Gemini requests */
-	backendUrl: string;
+	/** Google AI Studio / Gemini API key */
+	apiKey: string;
 	/** Gemini model identifier */
 	model: string;
 	/** Request timeout in milliseconds */

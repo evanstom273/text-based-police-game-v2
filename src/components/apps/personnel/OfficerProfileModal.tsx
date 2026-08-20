@@ -152,7 +152,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setEvaluationText(`[EVALUATION FAILED]: ${msg}. Please ensure the Gemini backend is connected in System Settings.`);
+      setEvaluationText(`[EVALUATION FAILED]: ${msg}. Please add a valid Gemini API key in System Settings.`);
     } finally {
       setIsGeneratingEval(false);
     }
@@ -660,7 +660,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
                 <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800 flex items-center gap-2">
                   <Shield className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>
-                    Gemini AI is currently offline. Connect in <strong>System Settings (SYS-08)</strong> to generate dossiers.
+                    Gemini API key not configured. Add your key in <strong>System Settings (SYS-08)</strong> to generate dossiers.
                   </span>
                 </div>
               )}
