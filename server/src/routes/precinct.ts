@@ -8,22 +8,16 @@ import {
 	deleteSaveGame,
 } from '../repositories/saveRepository.js';
 import { getAllSettings, setSetting } from '../repositories/settingsRepository.js';
-import { checkGeminiHealth } from '../services/geminiService.js';
 
 export function createPrecinctRoutes(config: ServerConfig): Hono {
 	const router = new Hono();
 
-	router.get('/health', async (c) => {
-		const gemini = await checkGeminiHealth(config);
+	router.get('/health', (c) => {
 		return c.json({
 			ok: true,
 			service: 'precinct-command',
 			version: '1.0.0',
 			dataDir: config.dataDir,
-			gemini: gemini.ok,
-			geminiError: gemini.error,
-			geminiModel: config.geminiModel,
-			geminiConfigured: Boolean(config.geminiApiKey),
 		});
 	});
 

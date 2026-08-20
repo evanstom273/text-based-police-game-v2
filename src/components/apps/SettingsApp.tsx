@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAI } from '../../context/AIContext';
 import { DEFAULT_GEMINI_MODEL } from '../../services/ai/types';
+import { maskApiKey } from '../../services/ai/geminiClient';
 import {
 	Cpu,
 	RefreshCw,
@@ -9,8 +10,10 @@ import {
 	Play,
 	Sliders,
 	Terminal,
-	Server,
+	Key,
 	Info,
+	Eye,
+	EyeOff,
 } from 'lucide-react';
 
 export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => {
@@ -25,23 +28,38 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
 		generateText,
 	} = useAI();
 
-	const [backendInput, setBackendInput] = useState(config.backendUrl);
+	const [apiKeyInput, setApiKeyInput] = useState(config.apiKey);
+	const [showApiKey, setShowApiKey] = useState(false);
 	const [testPrompt, setTestPrompt] = useState(
 		'Generate a brief, 2-sentence police radio report from Officer Miller confirming a suspect in custody at 4th Precinct.'
 	);
 	const [testOutput, setTestOutput] = useState('');
 	const [isRunningPrompt, setIsRunningPrompt] = useState(false);
 	const [tokenCount, setTokenCount] = useState(0);
-	const [activeTab, setActiveTab] = useState<'network' | 'diagnostic'>('network');
+	const [activeTab, setActiveTab] = useState<'api' | 'diagnostic'>('api');
+	const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
-	const handleApplyBackend = (url: string) => {
-		setBackendInput(url);
-		updateConfig({ backendUrl: url });
+	const handleValidateAndSave = async () => {
+		setValidationMessage(null);
+		const trimmedKey = apiKeyInput.trim();
+
+		if (!trimmedKey) {
+			setValidationMessage('Enter your Gemini API key before validating.');
+			return;
+		}
+
+		const result = await testConnection(trimmedKey);
+
+		if (result.success) {
+			updateConfig({ apiKey: trimmedKey });
+			setValidationMessage('API key validated and saved.');
+		}
 	};
 
-	const handleRunDiagnosticTest = async () => {
-		updateConfig({ backendUrl: backendInput });
-		await testConnection();
+	const handleClearKey = () => {
+		setApiKeyInput('');
+		updateConfig({ apiKey: '' });
+		setValidationMessage('API key cleared.');
 	};
 
 	const handleExecutePrompt = async () => {
@@ -82,7 +100,7 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
 							</span>
 						</div>
 						<div className="text-[11px] text-slate-500">
-							Gemini API via Backend Proxy ({DEFAULT_GEMINI_MODEL})
+							Direct Gemini API ({DEFAULT_GEMINI_MODEL})
 						</div>
 					</div>
 				</div>
@@ -99,17 +117,17 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
 					) : status === 'connecting' || isTesting ? (
 						<div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 border border-blue-200 text-blue-800 font-semibold text-[11px]">
 							<RefreshCw className="w-3 h-3 animate-spin text-blue-600" />
-							<span>CONNECTING...</span>
+							<span>VALIDATING...</span>
 						</div>
 					) : status === 'error' ? (
 						<div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-50 border border-red-200 text-red-800 font-semibold text-[11px]">
 							<AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-							<span>OFFLINE / ERROR</span>
+							<span>INVALID KEY</span>
 						</div>
 					) : (
 						<div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-100 border border-slate-200 text-slate-600 font-semibold text-[11px]">
 							<span className="w-2 h-2 rounded-full bg-slate-400"></span>
-							<span>DISCONNECTED</span>
+							<span>NO API KEY</span>
 						</div>
 					)}
 				</div>
@@ -117,15 +135,15 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
 
 			<div className="flex border-b border-slate-200 bg-white px-4">
 				<button
-					onClick={() => setActiveTab('network')}
+					onClick={() => setActiveTab('api')}
 					className={`py-2 px-3 font-medium text-xs border-b-2 transition flex items-center gap-1.5 ${
-						activeTab === 'network'
+						activeTab === 'api'
 							? 'border-blue-600 text-blue-700 font-semibold'
 							: 'border-transparent text-slate-600 hover:text-slate-900'
 					}`}
 				>
-					<Server className="w-3.5 h-3.5" />
-					API Configuration
+					<Key className="w-3.5 h-3.5" />
+					API Key
 				</button>
 				<button
 					onClick={() => setActiveTab('diagnostic')}
@@ -141,76 +159,75 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
 			</div>
 
 			<div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-				{activeTab === 'network' && (
+				{activeTab === 'api' && (
 					<div className="space-y-4 max-w-2xl">
 						<div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-[11px] text-blue-900 flex items-start gap-2.5">
 							<Info className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
 							<div className="space-y-1">
-								<strong className="block">Gemini API Key Setup:</strong>
+								<strong className="block">Get a Gemini API Key:</strong>
 								<p>
-									Set <code className="bg-blue-100 px-1 rounded">GEMINI_API_KEY</code> in your server
-									environment before starting the backend. The key is never stored in the browser.
+									Create a free API key at{' '}
+									<a
+										href="https://aistudio.google.com/apikey"
+										target="_blank"
+										rel="noopener noreferrer"
+										className="text-blue-700 underline"
+									>
+										Google AI Studio
+									</a>
+									. Your key is stored locally in this browser and sent directly to Google — no backend server required.
 								</p>
-								<pre className="p-2 bg-slate-900 text-slate-200 rounded font-mono text-[10px] mt-1 overflow-x-auto">
-									export GEMINI_API_KEY="your-api-key-here"{'\n'}
-									npm run dev:server
-								</pre>
 							</div>
 						</div>
 
 						<div className="p-4 bg-white border border-slate-200 rounded-lg shadow-2xs space-y-3">
 							<div className="flex items-center justify-between">
 								<span className="font-semibold text-xs text-slate-900 flex items-center gap-1.5">
-									<Server className="w-4 h-4 text-blue-600" />
-									Backend Server Endpoint
+									<Key className="w-4 h-4 text-blue-600" />
+									Gemini API Key
 								</span>
-								<span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
-									{DEFAULT_GEMINI_MODEL}
-								</span>
+								{config.apiKey && (
+									<span className="font-mono text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+										Saved: {maskApiKey(config.apiKey)}
+									</span>
+								)}
 							</div>
 
 							<div className="space-y-1.5">
-								<span className="text-[11px] text-slate-500 block">Backend Presets:</span>
-								<div className="flex flex-wrap gap-2">
-									<button
-										onClick={() => handleApplyBackend('http://localhost:3847')}
-										className={`px-2.5 py-1 rounded text-xs font-medium border transition ${
-											backendInput.includes('3847')
-												? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
-												: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-										}`}
-									>
-										Local Backend (localhost:3847)
-									</button>
-									<button
-										onClick={() => handleApplyBackend(window.location.origin)}
-										className={`px-2.5 py-1 rounded text-xs font-medium border transition ${
-											backendInput === window.location.origin
-												? 'bg-blue-50 text-blue-700 border-blue-300 font-semibold'
-												: 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-										}`}
-									>
-										Current Origin (proxied)
-									</button>
-								</div>
-							</div>
-
-							<div className="space-y-1.5">
+								<label className="text-[11px] text-slate-600 block">API Key:</label>
 								<div className="flex gap-2">
-									<input
-										type="text"
-										value={backendInput}
-										onChange={(e) => setBackendInput(e.target.value)}
-										placeholder="http://localhost:3847"
-										className="flex-1 bg-slate-50 border border-slate-300 rounded px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 font-mono"
-									/>
+									<div className="relative flex-1">
+										<input
+											type={showApiKey ? 'text' : 'password'}
+											value={apiKeyInput}
+											onChange={(e) => setApiKeyInput(e.target.value)}
+											placeholder="AIza..."
+											className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-1.5 pr-9 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 font-mono"
+										/>
+										<button
+											type="button"
+											onClick={() => setShowApiKey((v) => !v)}
+											className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+										>
+											{showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+										</button>
+									</div>
 									<button
-										onClick={handleRunDiagnosticTest}
+										onClick={handleValidateAndSave}
 										disabled={isTesting}
 										className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded text-xs transition flex items-center gap-1.5 shadow-2xs disabled:opacity-50"
 									>
 										<RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
-										Test & Connect
+										Validate & Save
+									</button>
+								</div>
+
+								<div className="flex gap-2">
+									<button
+										onClick={handleClearKey}
+										className="px-2.5 py-1 rounded text-xs font-medium border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition"
+									>
+										Clear Key
 									</button>
 								</div>
 
@@ -218,6 +235,13 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
 									<div className="p-2.5 bg-red-50 border border-red-200 rounded text-[11px] text-red-700 flex items-start gap-2">
 										<AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
 										<div>{lastError}</div>
+									</div>
+								)}
+
+								{validationMessage && !lastError && (
+									<div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-800 flex items-start gap-2">
+										<CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+										<div>{validationMessage}</div>
 									</div>
 								)}
 							</div>
@@ -251,14 +275,6 @@ export const SettingsApp: React.FC<{ windowId: string; appId: string }> = () => 
 									/>
 								</div>
 							</div>
-						</div>
-
-						<div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-900 flex items-center gap-2">
-							<CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-							<span>
-								All AI inference requests are routed through the backend proxy to Gemini{' '}
-								{DEFAULT_GEMINI_MODEL}.
-							</span>
 						</div>
 					</div>
 				)}

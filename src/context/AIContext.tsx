@@ -16,7 +16,7 @@ import {
 const STORAGE_KEY = 'precinct_command_gemini_config';
 
 const DEFAULT_CONFIG: GeminiConfig = {
-	backendUrl: 'http://localhost:3847',
+	apiKey: '',
 	model: DEFAULT_GEMINI_MODEL,
 	timeoutMs: 60000,
 	temperature: 0.7,
@@ -30,7 +30,7 @@ interface AIContextType {
 	lastError: string | null;
 	isTesting: boolean;
 	updateConfig: (newConfig: Partial<GeminiConfig>) => void;
-	testConnection: () => Promise<AIConnectionTestResult>;
+	testConnection: (apiKeyOverride?: string) => Promise<AIConnectionTestResult>;
 	generateText: (options: GenerateOptions) => Promise<string>;
 	generateChat: (options: ChatOptions) => Promise<string>;
 }
@@ -62,24 +62,27 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 	const [lastError, setLastError] = useState<string | null>(null);
 	const [isTesting, setIsTesting] = useState(false);
 
-	const testConnection = useCallback(async (): Promise<AIConnectionTestResult> => {
-		setIsTesting(true);
-		setStatus('connecting');
-		setLastError(null);
+	const testConnection = useCallback(
+		async (apiKeyOverride?: string): Promise<AIConnectionTestResult> => {
+			setIsTesting(true);
+			setStatus('connecting');
+			setLastError(null);
 
-		const result = await testGeminiConnection(config);
+			const result = await testGeminiConnection(config, { apiKey: apiKeyOverride });
 
-		if (result.success) {
-			setStatus('connected');
-			setLatencyMs(result.latencyMs ?? null);
-		} else {
-			setStatus('error');
-			setLastError(result.errorMessage || 'Connection failed');
-		}
+			if (result.success) {
+				setStatus('connected');
+				setLatencyMs(result.latencyMs ?? null);
+			} else {
+				setStatus('error');
+				setLastError(result.errorMessage || 'Connection failed');
+			}
 
-		setIsTesting(false);
-		return result;
-	}, [config]);
+			setIsTesting(false);
+			return result;
+		},
+		[config]
+	);
 
 	const updateConfig = useCallback((newConfig: Partial<GeminiConfig>) => {
 		setConfig((prev) => {
@@ -108,6 +111,11 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 	);
 
 	useEffect(() => {
+		if (!config.apiKey.trim()) {
+			setStatus('disconnected');
+			return;
+		}
+
 		let isMounted = true;
 
 		const check = async () => {
@@ -128,7 +136,7 @@ export const AIProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 		return () => {
 			isMounted = false;
 		};
-	}, []);
+	}, [config.apiKey]);
 
 	return (
 		<AIContext.Provider
