@@ -36,10 +36,10 @@ export const SystemTray: React.FC = () => {
 
   return (
     <div className="flex items-center gap-2 text-slate-300 font-sans text-xs select-none">
-      {/* AI / Ollama Status Badge */}
+      {/* AI / Gemini Status Badge */}
       <button
         onClick={handleOpenSettings}
-        title={`AI Engine: ${aiStatus.toUpperCase()} (${aiConfig.selectedModel}) - Click to configure Ollama & Tailscale`}
+        title={`AI Engine: ${aiStatus.toUpperCase()} (${aiConfig.model}) - Click to configure Gemini API`}
         className={`hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10px] font-medium transition cursor-pointer ${
           aiStatus === 'connected'
             ? 'bg-slate-900 border-slate-700/80 text-sky-300 hover:border-sky-500'
@@ -60,7 +60,7 @@ export const SystemTray: React.FC = () => {
         <Cpu className="w-3 h-3 text-sky-400" />
         <span className="font-mono text-[10px]">
           {aiStatus === 'connected'
-            ? `${aiConfig.selectedModel}${latencyMs ? ` (${latencyMs}ms)` : ''}`
+            ? `${aiConfig.model}${latencyMs ? ` (${latencyMs}ms)` : ''}`
             : 'AI: OFFLINE'}
         </span>
       </button>

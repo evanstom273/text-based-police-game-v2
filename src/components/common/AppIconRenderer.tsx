@@ -61,7 +61,7 @@ export const AppIconRenderer: React.FC<AppIconRendererProps> = ({ name, classNam
       return <Settings {...iconProps} />;
     case 'cpu':
     case 'ai':
-    case 'ollama':
+    case 'gemini':
       return <Cpu {...iconProps} />;
     case 'alert':
       return <AlertTriangle {...iconProps} />;

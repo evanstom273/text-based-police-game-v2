@@ -13,15 +13,7 @@ export default defineConfig({
         target: 'http://127.0.0.1:3847',
         changeOrigin: true,
       },
-      '/api/tags': {
-        target: 'http://127.0.0.1:3847',
-        changeOrigin: true,
-      },
-      '/api/chat': {
-        target: 'http://127.0.0.1:3847',
-        changeOrigin: true,
-      },
-      '/api/generate': {
+      '/api/ai': {
         target: 'http://127.0.0.1:3847',
         changeOrigin: true,
       },

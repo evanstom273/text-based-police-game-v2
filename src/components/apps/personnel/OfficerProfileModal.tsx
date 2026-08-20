@@ -49,7 +49,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
     'record'
   );
 
-  const { status: aiStatus, config: aiConfig, models, updateConfig, generateText, generateChat } = useAI();
+  const { status: aiStatus, config: aiConfig, generateText, generateChat } = useAI();
 
   const chatStorageKey = `precinct_chat_v2_${officer.id}`;
   const evalStorageKey = `precinct_eval_v2_${officer.id}`;
@@ -152,7 +152,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setEvaluationText(`[EVALUATION FAILED]: ${msg}. Please ensure Ollama / backend server is connected in System Settings.`);
+      setEvaluationText(`[EVALUATION FAILED]: ${msg}. Please ensure the Gemini backend is connected in System Settings.`);
     } finally {
       setIsGeneratingEval(false);
     }
@@ -660,7 +660,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
                 <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800 flex items-center gap-2">
                   <Shield className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>
-                    Ollama is currently offline. Connect in <strong>System Settings (SYS-08)</strong> to generate dossiers.
+                    Gemini AI is currently offline. Connect in <strong>System Settings (SYS-08)</strong> to generate dossiers.
                   </span>
                 </div>
               )}
@@ -677,7 +677,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
                   </p>
                   <p className="text-[11px] text-slate-400">
                     Click <strong>Generate AI Evaluation</strong> above to request a tactical & stress profile from{' '}
-                    <code className="text-blue-700 font-mono">{aiConfig.selectedModel}</code>.
+                    <code className="text-blue-700 font-mono">{aiConfig.model}</code>.
                   </p>
                 </div>
               )}
@@ -703,23 +703,7 @@ export const OfficerProfileModal: React.FC<OfficerProfileModalProps> = ({ office
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 bg-slate-800 border border-slate-700 rounded px-2 py-0.5">
                   <Zap className="w-3 h-3 text-amber-400 shrink-0" />
-                  <select
-                    value={aiConfig.selectedModel}
-                    onChange={(e) => updateConfig({ selectedModel: e.target.value })}
-                    className="bg-transparent text-slate-200 text-[10px] font-mono focus:outline-none cursor-pointer"
-                  >
-                    {models.length > 0 ? (
-                      models.map((m) => (
-                        <option key={m.name} value={m.name} className="bg-slate-900 text-slate-100">
-                          {m.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option value={aiConfig.selectedModel} className="bg-slate-900 text-slate-100">
-                        {aiConfig.selectedModel}
-                      </option>
-                    )}
-                  </select>
+                  <span className="text-slate-200 text-[10px] font-mono">{aiConfig.model}</span>
                 </div>
 
                 <button
